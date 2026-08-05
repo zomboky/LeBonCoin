@@ -7,7 +7,7 @@ sur du HTML figé puisque aucun appel live n'est possible depuis ce conteneur
 
 import unittest
 
-from lbc.transport import Blocked, extract_next_data
+from golddigger02.transport import Blocked, extract_next_data
 
 
 def wrap(payload_json: str) -> str:

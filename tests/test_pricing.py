@@ -2,9 +2,9 @@
 
 import unittest
 
-from lbc.domains import Domain, ValueBand
-from lbc.models import Listing
-from lbc.pricing import (
+from golddigger02.domains import Domain, ValueBand
+from golddigger02.models import Listing
+from golddigger02.pricing import (
     assign_reference_prices,
     is_suspiciously_cheap,
     mad,

@@ -2,7 +2,7 @@
 
 import unittest
 
-from lbc.taxonomy import resolve_category, resolve_location, slug
+from golddigger02.taxonomy import resolve_category, resolve_location, slug
 
 
 class TestSlug(unittest.TestCase):

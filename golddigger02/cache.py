@@ -14,6 +14,7 @@ import datetime as _dt
 import hashlib
 import json
 import sqlite3
+import threading
 import time
 from typing import Any, Iterable
 
@@ -50,10 +51,15 @@ class Store:
     def __init__(self, path=None):
         config.ensure_dirs()
         self.path = str(path or config.CACHE_DB)
-        self.conn = sqlite3.connect(self.path)
+        # check_same_thread=False + verrou explicite : `research_many` interroge
+        # ce même Store depuis plusieurs threads (ThreadPoolExecutor), et le
+        # module sqlite3 refuse par défaut qu'une connexion traverse un thread.
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
-        self.conn.executescript(_SCHEMA)
-        self.conn.commit()
+        self._lock = threading.Lock()
+        with self._lock:
+            self.conn.executescript(_SCHEMA)
+            self.conn.commit()
 
     def __enter__(self) -> "Store":
         return self
@@ -73,9 +79,10 @@ class Store:
         ttl = config.CACHE_TTL if ttl is None else ttl
         if ttl <= 0:
             return None
-        row = self.conn.execute(
-            "SELECT payload, fetched_at FROM responses WHERE key = ?", (key,)
-        ).fetchone()
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT payload, fetched_at FROM responses WHERE key = ?", (key,)
+            ).fetchone()
         if row is None or (time.time() - row["fetched_at"]) > ttl:
             return None
         try:
@@ -84,26 +91,29 @@ class Store:
             return None
 
     def put_response(self, key: str, payload: dict) -> None:
-        self.conn.execute(
-            "INSERT OR REPLACE INTO responses (key, payload, fetched_at) VALUES (?, ?, ?)",
-            (key, json.dumps(payload, ensure_ascii=False), time.time()),
-        )
-        self.conn.commit()
+        with self._lock:
+            self.conn.execute(
+                "INSERT OR REPLACE INTO responses (key, payload, fetched_at) VALUES (?, ?, ?)",
+                (key, json.dumps(payload, ensure_ascii=False), time.time()),
+            )
+            self.conn.commit()
 
     def purge_expired(self, ttl: int | None = None) -> int:
         ttl = config.CACHE_TTL if ttl is None else ttl
-        cur = self.conn.execute(
-            "DELETE FROM responses WHERE fetched_at < ?", (time.time() - ttl,)
-        )
-        self.conn.commit()
-        return cur.rowcount
+        with self._lock:
+            cur = self.conn.execute(
+                "DELETE FROM responses WHERE fetched_at < ?", (time.time() - ttl,)
+            )
+            self.conn.commit()
+            return cur.rowcount
 
     # -- Mémoire des annonces vues -------------------------------------------
 
     def is_seen(self, ad_id: str) -> bool:
-        row = self.conn.execute(
-            "SELECT 1 FROM seen WHERE ad_id = ?", (str(ad_id),)
-        ).fetchone()
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT 1 FROM seen WHERE ad_id = ?", (str(ad_id),)
+            ).fetchone()
         return row is not None
 
     def filter_unseen(self, listings: Iterable) -> list:
@@ -119,14 +129,15 @@ class Store:
         if not ids:
             return set()
         found: set[str] = set()
-        # SQLite plafonne le nombre de paramètres ; on découpe.
-        for start in range(0, len(ids), 500):
-            chunk = ids[start : start + 500]
-            placeholders = ",".join("?" * len(chunk))
-            rows = self.conn.execute(
-                f"SELECT ad_id FROM seen WHERE ad_id IN ({placeholders})", chunk
-            ).fetchall()
-            found.update(r["ad_id"] for r in rows)
+        with self._lock:
+            # SQLite plafonne le nombre de paramètres ; on découpe.
+            for start in range(0, len(ids), 500):
+                chunk = ids[start : start + 500]
+                placeholders = ",".join("?" * len(chunk))
+                rows = self.conn.execute(
+                    f"SELECT ad_id FROM seen WHERE ad_id IN ({placeholders})", chunk
+                ).fetchall()
+                found.update(r["ad_id"] for r in rows)
         return found
 
     def mark_seen(self, listings: Iterable, domain: str = "") -> int:
@@ -146,41 +157,44 @@ class Store:
         ]
         if not rows:
             return 0
-        self.conn.executemany(
-            """
-            INSERT INTO seen (ad_id, domain, title, price, deal_score, first_seen, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(ad_id) DO UPDATE SET
-                last_seen  = excluded.last_seen,
-                deal_score = excluded.deal_score,
-                price      = excluded.price
-            """,
-            rows,
-        )
-        self.conn.commit()
+        with self._lock:
+            self.conn.executemany(
+                """
+                INSERT INTO seen (ad_id, domain, title, price, deal_score, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ad_id) DO UPDATE SET
+                    last_seen  = excluded.last_seen,
+                    deal_score = excluded.deal_score,
+                    price      = excluded.price
+                """,
+                rows,
+            )
+            self.conn.commit()
         return len(rows)
 
     def forget(self, ad_ids: Iterable[str] | None = None, domain: str | None = None) -> int:
-        if ad_ids:
-            ids = [str(i) for i in ad_ids]
-            placeholders = ",".join("?" * len(ids))
-            cur = self.conn.execute(
-                f"DELETE FROM seen WHERE ad_id IN ({placeholders})", ids
-            )
-        elif domain:
-            cur = self.conn.execute("DELETE FROM seen WHERE domain = ?", (domain,))
-        else:
-            cur = self.conn.execute("DELETE FROM seen")
-        self.conn.commit()
-        return cur.rowcount
+        with self._lock:
+            if ad_ids:
+                ids = [str(i) for i in ad_ids]
+                placeholders = ",".join("?" * len(ids))
+                cur = self.conn.execute(
+                    f"DELETE FROM seen WHERE ad_id IN ({placeholders})", ids
+                )
+            elif domain:
+                cur = self.conn.execute("DELETE FROM seen WHERE domain = ?", (domain,))
+            else:
+                cur = self.conn.execute("DELETE FROM seen")
+            self.conn.commit()
+            return cur.rowcount
 
     def seen_stats(self) -> list[dict]:
-        rows = self.conn.execute(
-            """
-            SELECT domain, COUNT(*) AS n, MAX(last_seen) AS last
-            FROM seen GROUP BY domain ORDER BY n DESC
-            """
-        ).fetchall()
+        with self._lock:
+            rows = self.conn.execute(
+                """
+                SELECT domain, COUNT(*) AS n, MAX(last_seen) AS last
+                FROM seen GROUP BY domain ORDER BY n DESC
+                """
+            ).fetchall()
         out = []
         for r in rows:
             last = (

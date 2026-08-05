@@ -8,7 +8,7 @@ verrouillent le comportement défensif attendu de `Listing.from_raw`.
 import datetime as dt
 import unittest
 
-from lbc.models import Listing, _parse_date, _parse_price
+from golddigger02.models import Listing, _parse_date, _parse_price
 
 
 class TestParsePrice(unittest.TestCase):

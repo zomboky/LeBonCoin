@@ -2,7 +2,7 @@
 
 import unittest
 
-from lbc import domains
+from golddigger02 import domains
 
 
 class TestLoadAll(unittest.TestCase):

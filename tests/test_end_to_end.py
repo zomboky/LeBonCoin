@@ -11,9 +11,9 @@ import json
 import unittest
 from pathlib import Path
 
-from lbc.domains import get as get_domain
-from lbc.models import Listing
-from lbc.score import rank
+from golddigger02.domains import get as get_domain
+from golddigger02.models import Listing
+from golddigger02.score import rank
 
 FIXTURE = Path(__file__).parent / "fixtures" / "aviation_sample.json"
 

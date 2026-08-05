@@ -91,7 +91,7 @@ class Transport:
 
     def _log(self, message: str) -> None:
         if self.verbose:
-            print(f"lbc: {message}")
+            print(f"golddigger02: {message}")
 
     # -- API ------------------------------------------------------------------
 

@@ -97,7 +97,7 @@ def as_vision(listings: list, max_images: int = 3) -> str:
 
 
 def as_detail(listing) -> str:
-    """Vue complète d'une annonce unique (`lbc show`)."""
+    """Vue complète d'une annonce unique (`golddigger02 show`)."""
     lines = [
         f"{listing.title}",
         f"prix   : {_price(listing.price)}€"

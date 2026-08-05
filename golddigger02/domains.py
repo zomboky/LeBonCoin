@@ -4,7 +4,7 @@ Un pack est un YAML décrivant un terrain de chasse : où chercher, quelles marq
 comptent, comment reconnaître une pièce d'origine d'une reproduction, et quelles
 fourchettes de prix font foi quand il n'y a pas assez de comparables.
 
-Ajouter un domaine = déposer un `.yml` dans `lbc/domains/`. Aucun code à toucher.
+Ajouter un domaine = déposer un `.yml` dans `golddigger02/domains/`. Aucun code à toucher.
 """
 
 from __future__ import annotations
@@ -171,7 +171,7 @@ def load_all() -> dict[str, Domain]:
                 domain = load_domain(path)
             except (yaml.YAMLError, ValueError, OSError) as exc:
                 # Un pack cassé ne doit pas empêcher les autres de fonctionner.
-                print(f"lbc: pack ignoré ({path.name}) : {exc}")
+                print(f"golddigger02: pack ignoré ({path.name}) : {exc}")
                 continue
             domains[domain.name] = domain
     return domains

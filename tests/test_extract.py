@@ -2,8 +2,8 @@
 
 import unittest
 
-from lbc.domains import Domain, ModelRule
-from lbc.extract import (
+from golddigger02.domains import Domain, ModelRule
+from golddigger02.extract import (
     cohort_signature,
     content_tokens,
     detect_typo,
@@ -13,7 +13,7 @@ from lbc.extract import (
     listing_quality,
     normalize,
 )
-from lbc.models import Listing
+from golddigger02.models import Listing
 
 
 def make_aviation_domain() -> Domain:

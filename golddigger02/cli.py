@@ -1,12 +1,13 @@
 """Interface en ligne de commande.
 
 Sous-commandes :
-  deals    chercher puis classer par potentiel de pépite
-  search   recherche simple, sortie compacte
-  show     détail d'une annonce
-  watch    uniquement ce qui est apparu depuis le dernier passage
-  domains  lister/inspecter les packs thématiques
-  seen     gérer la mémoire des annonces déjà vues
+  deals     chercher puis classer par potentiel de pépite
+  search    recherche simple, sortie compacte
+  show      détail d'une annonce
+  watch     uniquement ce qui est apparu depuis le dernier passage
+  domains   lister/inspecter les packs thématiques
+  seen      gérer la mémoire des annonces déjà vues
+  research  vérifier un modèle/marque sur des pages web externes (ex-Mach2)
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import cache, config, domains as domains_mod, render
+from . import cache, config, domains as domains_mod, render, research as research_mod
 from .api import SearchParams, fetch, fetch_many
 from .models import Listing
 from .score import rank
@@ -28,7 +29,7 @@ from .transport import Blocked, Transport, TransportError
 
 def _add_search_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("query", nargs="?", default="", help="texte recherché")
-    parser.add_argument("--domain", "-d", help="pack thématique (cf. `lbc domains`)")
+    parser.add_argument("--domain", "-d", help="pack thématique (cf. `golddigger02 domains`)")
     parser.add_argument("--category", "-c", help="catégorie leboncoin (nom ou id)")
     parser.add_argument("--min-price", type=int)
     parser.add_argument("--max-price", type=int)
@@ -94,7 +95,7 @@ def _collect(args, store) -> tuple[list[Listing], object]:
     domain = domains_mod.get(args.domain) if args.domain else None
     if args.domain and domain is None:
         available = ", ".join(sorted(domains_mod.load_all())) or "(aucun)"
-        raise SystemExit(f"lbc: pack « {args.domain} » inconnu. Disponibles : {available}")
+        raise SystemExit(f"golddigger02: pack « {args.domain} » inconnu. Disponibles : {available}")
 
     if args.from_fixture:
         return _load_fixture(args.from_fixture), domain
@@ -109,7 +110,7 @@ def _collect(args, store) -> tuple[list[Listing], object]:
     if domain is not None and not args.query and domain.queries:
         if not args.category and domain.category_ids:
             params.category = domain.category_ids[0]
-        on_query = (lambda q: print(f"lbc: → {q}", file=sys.stderr)) if args.verbose else None
+        on_query = (lambda q: print(f"golddigger02: → {q}", file=sys.stderr)) if args.verbose else None
         listings = fetch_many(domain.queries, params, transport, store, use_cache, on_query)
     else:
         if domain is not None and not args.category and domain.category_ids:
@@ -128,14 +129,14 @@ def cmd_deals(args) -> int:
             listings, domain = _collect(args, store)
         except Blocked as exc:
             print(
-                f"lbc: leboncoin a bloqué la requête ({exc}).\n"
+                f"golddigger02: leboncoin a bloqué la requête ({exc}).\n"
                 "     Depuis une IP de datacenter c'est attendu. Réessayer depuis une\n"
                 "     connexion résidentielle, ou installer playwright pour le repli.",
                 file=sys.stderr,
             )
             return 2
         except TransportError as exc:
-            print(f"lbc: {exc}", file=sys.stderr)
+            print(f"golddigger02: {exc}", file=sys.stderr)
             return 2
 
         total = len(listings)
@@ -163,7 +164,7 @@ def cmd_search(args) -> int:
         try:
             listings, _ = _collect(args, store)
         except (Blocked, TransportError) as exc:
-            print(f"lbc: {exc}", file=sys.stderr)
+            print(f"golddigger02: {exc}", file=sys.stderr)
             return 2
         subset = listings[: args.top]
         print(render.summary_line(len(listings), len(subset)))
@@ -182,7 +183,7 @@ def cmd_show(args) -> int:
     try:
         raw = transport.get_ad(args.ad_id)
     except (Blocked, TransportError) as exc:
-        print(f"lbc: {exc}", file=sys.stderr)
+        print(f"golddigger02: {exc}", file=sys.stderr)
         return 2
     listing = Listing.from_raw(raw)
     domain = domains_mod.get(args.domain) if args.domain else None
@@ -194,13 +195,13 @@ def cmd_show(args) -> int:
 def cmd_domains(args) -> int:
     all_domains = domains_mod.load_all()
     if not all_domains:
-        print("lbc: aucun pack trouvé.")
+        print("golddigger02: aucun pack trouvé.")
         return 1
 
     if args.name:
         domain = all_domains.get(args.name.lower())
         if domain is None:
-            print(f"lbc: pack « {args.name} » inconnu.", file=sys.stderr)
+            print(f"golddigger02: pack « {args.name} » inconnu.", file=sys.stderr)
             return 1
         print(f"{domain.name} — {domain.label}")
         print(f"  catégories : {', '.join(domain.categories) or '-'}")
@@ -220,6 +221,33 @@ def cmd_domains(args) -> int:
     return 0
 
 
+def cmd_research(args) -> int:
+    """Vérifier un modèle/marque identifié sur des pages web externes.
+
+    Ne touche pas au pipeline leboncoin : sert à confirmer, en dehors, qu'une
+    référence obscure remontée par `hidden_model`/`typo_brand` est bien rare ou
+    recherchée, avant de faire confiance au score. Ex-Mach2 (scrape/batch),
+    branché sur le cache SQLite de l'outil plutôt qu'un cache fichier séparé.
+    """
+    with cache.Store() as store:
+        results, out_dir = research_mod.run(
+            args.urls,
+            store=store,
+            render=args.render,
+            query=args.filter,
+            max_chars=args.max_chars,
+            concurrency=args.concurrency,
+            use_cache=not args.no_cache,
+        )
+    print(research_mod.summary_lines(results, out_dir))
+    if args.show:
+        first_ok = next((r for r in results if not r.error), None)
+        if first_ok:
+            print(f"\n--- aperçu ({args.show} car.) : {first_ok.url} ---")
+            print(first_ok.markdown[: args.show])
+    return 0 if any(not r.error for r in results) else 1
+
+
 def cmd_seen(args) -> int:
     with cache.Store() as store:
         if args.forget or args.all or args.forget_domain:
@@ -227,11 +255,11 @@ def cmd_seen(args) -> int:
                 ad_ids=args.forget or None,
                 domain=args.forget_domain,
             )
-            print(f"lbc: {removed} annonces oubliées.")
+            print(f"golddigger02: {removed} annonces oubliées.")
             return 0
         stats = store.seen_stats()
         if not stats:
-            print("lbc: mémoire vide.")
+            print("golddigger02: mémoire vide.")
             return 0
         for row in stats:
             print(f"{row['domain']:18} {row['count']:>6}  dernier: {row['last_seen']}")
@@ -243,7 +271,7 @@ def cmd_seen(args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="lbc",
+        prog="golddigger02",
         description="Recherche leboncoin et détection de pépites.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -273,6 +301,19 @@ def build_parser() -> argparse.ArgumentParser:
     domains_cmd = sub.add_parser("domains", help="lister les packs thématiques")
     domains_cmd.add_argument("name", nargs="?")
     domains_cmd.set_defaults(func=cmd_domains)
+
+    research = sub.add_parser(
+        "research",
+        help="vérifier un modèle/marque sur des pages web externes (ex-Mach2)",
+    )
+    research.add_argument("urls", nargs="+", help="une ou plusieurs URLs à inspecter")
+    research.add_argument("--filter", help="ne garder que les passages pertinents à cette requête")
+    research.add_argument("--max-chars", type=int, help="plafond de caractères par page")
+    research.add_argument("--render", action="store_true", help="rendu JS (Playwright), sites SPA")
+    research.add_argument("--concurrency", type=int, default=5)
+    research.add_argument("--no-cache", action="store_true")
+    research.add_argument("--show", type=int, default=0, help="aperçu console (N car. de la 1ère page)")
+    research.set_defaults(func=cmd_research)
 
     seen = sub.add_parser("seen", help="mémoire des annonces déjà vues")
     seen.add_argument("--forget", nargs="*", help="identifiants à oublier")

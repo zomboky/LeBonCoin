@@ -3,9 +3,9 @@
 import datetime as dt
 import unittest
 
-from lbc.domains import Domain, ModelRule, ValueBand
-from lbc.models import Listing
-from lbc.score import score_listing
+from golddigger02.domains import Domain, ModelRule, ValueBand
+from golddigger02.models import Listing
+from golddigger02.score import score_listing
 
 
 def aviation_domain() -> Domain:

@@ -137,12 +137,12 @@ def fetch(
                 # Sur la première page, c'est fatal ; ensuite on garde l'acquis.
                 if page == 0:
                     raise
-                print(f"lbc: arrêt à la page {page + 1} — {exc}")
+                print(f"golddigger02: arrêt à la page {page + 1} — {exc}")
                 break
             except TransportError as exc:
                 if page == 0:
                     raise
-                print(f"lbc: arrêt à la page {page + 1} — {exc}")
+                print(f"golddigger02: arrêt à la page {page + 1} — {exc}")
                 break
             if store is not None:
                 store.put_response(key, block)
@@ -186,7 +186,7 @@ def fetch_many(
             for listing in fetch(params, transport, store, use_cache):
                 merged.setdefault(listing.id, listing)
         except (Blocked, TransportError) as exc:
-            print(f"lbc: requête « {query} » abandonnée — {exc}")
+            print(f"golddigger02: requête « {query} » abandonnée — {exc}")
             continue
     return list(merged.values())
 

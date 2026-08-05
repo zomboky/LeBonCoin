@@ -2,8 +2,8 @@
 
 import unittest
 
-from lbc.models import Listing
-from lbc.render import as_ids, as_jsonl, as_tsv, as_vision, render
+from golddigger02.models import Listing
+from golddigger02.render import as_ids, as_jsonl, as_tsv, as_vision, render
 
 
 def make_listings(n: int) -> list:

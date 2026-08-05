@@ -1,38 +1,47 @@
-# lbc — recherche leboncoin & détection de pépites
+# GoldDigger02 — recherche leboncoin, détection de pépites & vérification externe
 
 Outil en ligne de commande, pensé pour être piloté par un agent aussi bien que
 par un humain. Le principe : **tout le travail coûteux se fait en Python** —
 récupération des annonces, regroupement en cohortes comparables, statistiques,
-extraction de marque/modèle, scoring — pour que l'appelant (humain ou modèle)
-ne reçoive qu'une short-list compacte, jamais du JSON brut.
+extraction de marque/modèle, scoring, et (nouveau) extraction propre de pages
+web externes — pour que l'appelant (humain ou modèle) ne reçoive qu'une
+short-list compacte, jamais du HTML ou du JSON brut.
+
+Anciennement `lbc`. Intègre directement le cœur de
+[**Mach2**](https://github.com/zomboky/mach2) (clone local de Firecrawl) comme
+module `research`, pour vérifier sur le web une référence identifiée dans une
+annonce avant de lui faire confiance.
 
 ## Installation
 
 ```bash
 pip install -r requirements.txt
-# Optionnel mais recommandé : repli navigateur si l'API interne est bloquée.
+# Optionnel mais recommandé : repli navigateur (DataDome, ou research --render).
 pip install playwright && playwright install chromium
 ```
 
 Python 3.10+. Aucune base de données externe : SQLite est créé automatiquement
-sous `~/.cache/lbc/`.
+sous `~/.cache/golddigger02/`.
 
-## Avertissement réseau : DataDome
+## Avertissement réseau : DataDome (concerne `deals`/`search`/`watch`/`show`)
 
-leboncoin est protégé par DataDome. **Cet outil ne fonctionnera pas depuis une
-IP de datacenter, un VPS ou un CI** — DataDome bloque ces plages avant même
-d'atteindre le code (vérifié : 403 sur l'API, `ERR_CONNECTION_RESET` sur
-Chromium via proxy). Il est fait pour tourner sur une machine personnelle avec
-une connexion résidentielle normale.
+leboncoin est protégé par DataDome. **Ces commandes ne fonctionneront pas
+depuis une IP de datacenter, un VPS ou un CI** — DataDome bloque ces plages
+avant même d'atteindre le code (vérifié : 403 sur l'API,
+`ERR_CONNECTION_RESET` sur Chromium via proxy). Fait pour tourner sur une
+machine personnelle avec une connexion résidentielle normale.
 
-Comportement en cas de blocage :
+La commande `research` n'est **pas concernée** : elle lit des pages web
+ordinaires (Wikipédia, forums, résultats d'enchères...), jamais leboncoin.
+
+Comportement de `deals` en cas de blocage :
 1. requête HTTP directe sur l'API interne (rapide, peu coûteux) ;
 2. si 403 : ouverture ponctuelle de Chromium (Playwright) pour récolter un
    cookie `datadome` valide, puis retour en HTTP pour la suite ;
 3. si l'API reste fermée : lecture du `__NEXT_DATA__` de la page de recherche.
 
-Les cookies sont mis en cache (`~/.cache/lbc/state/cookies.json`) : un seul
-passage navigateur suffit généralement pour toute une session.
+Les cookies sont mis en cache (`~/.cache/golddigger02/state/cookies.json`) :
+un seul passage navigateur suffit généralement pour toute une session.
 
 L'usage prévu est personnel et raisonnable — pas de rate-limiting imposé
 (option `--delay`, désactivée par défaut), mais pas de parallélisme agressif
@@ -42,16 +51,19 @@ ni de contournement de blocage au-delà d'un cookie légitime.
 
 ```bash
 # Un pack thématique entier (lance toutes ses requêtes-sources)
-python3 -m lbc deals --domain aviation --top 20
+python3 -m golddigger02 deals --domain aviation --top 20
 
 # Une recherche libre
-python3 -m lbc deals "leica m6" --category telephonie --where 75 --max-price 800
+python3 -m golddigger02 deals "leica m6" --category telephonie --where 75 --max-price 800
 
 # Uniquement les nouveautés depuis le dernier passage
-python3 -m lbc watch --domain michelin
+python3 -m golddigger02 watch --domain michelin
 
 # Détail d'une annonce, avec images
-python3 -m lbc show 123456789 --domain aviation
+python3 -m golddigger02 show 123456789 --domain aviation
+
+# Vérifier un modèle identifié sur le web (ne touche pas à leboncoin)
+python3 -m golddigger02 research "https://fr.wikipedia.org/wiki/..." --filter "Gueneau 123" --max-chars 2000
 ```
 
 ## Commandes
@@ -63,6 +75,7 @@ python3 -m lbc show 123456789 --domain aviation
 | `watch` | comme `deals`, restreint aux annonces jamais vues |
 | `show <id>` | détail d'une annonce, avec images |
 | `domains [nom]` | lister ou inspecter les packs thématiques |
+| `research <urls...>` | pages web → markdown propre en fichiers (ex-Mach2) |
 | `seen` | statistiques / purge de la mémoire des annonces vues |
 
 Options principales de `deals`/`search`/`watch` : `--category` `--min-price`
@@ -70,6 +83,10 @@ Options principales de `deals`/`search`/`watch` : `--category` `--min-price`
 `--top` `--min-score` `--min-cohort` `--format tsv|jsonl|ids|vision` `--unseen`
 `--delay` `--no-cache` `--no-browser` `--from-fixture <json>` (rejoue un JSON
 local, utile pour tester sans réseau).
+
+Options de `research` : `--filter "requête"` (ne garde que les passages
+pertinents) `--max-chars N` `--render` (rendu JS, Playwright) `--concurrency N`
+(défaut 5) `--no-cache` `--show N` (aperçu console de la 1ère page).
 
 ## Comment le score de pépite est calculé
 
@@ -102,8 +119,8 @@ affaire.
 
 ## Packs thématiques
 
-Un pack (`lbc/domains/*.yml`) décrit un terrain de chasse : catégories API,
-requêtes-sources, marques, règles de détection de modèle, fautes
+Un pack (`golddigger02/domains/*.yml`) décrit un terrain de chasse : catégories
+API, requêtes-sources, marques, règles de détection de modèle, fautes
 d'orthographe connues, marqueurs d'origine/reproduction, et barèmes de prix.
 
 Livrés : `aviation`, `space` (conquête spatiale), `flight-sim` (matériel de
@@ -112,13 +129,13 @@ simulateur de vol), `militaria`, `michelin` (Michelin collector), `tech-vintage`
 (générique).
 
 **Ajouter un domaine ne demande aucun code** : déposer un fichier dans
-`~/.config/lbc/domains/mon-pack.yml` (variable `LBC_DOMAIN_DIR` pour changer
-l'emplacement). Un pack qui porte le nom d'un pack livré le remplace.
+`~/.config/golddigger02/domains/mon-pack.yml` (variable `GD2_DOMAIN_DIR` pour
+changer l'emplacement). Un pack qui porte le nom d'un pack livré le remplace.
 
 ```yaml
 name: mon-pack
 label: Description humaine
-categories: [collection, decoration]      # noms ou ids leboncoin (lbc/taxonomy.py)
+categories: [collection, decoration]      # noms ou ids leboncoin (golddigger02/taxonomy.py)
 queries:                                   # requêtes lancées par `deals --domain mon-pack`
   - terme de recherche 1
 brands: [Marque A, Marque B]
@@ -132,19 +149,59 @@ value_bands:
   - {match: "motif regex", low: 50, high: 300}   # référence = low + (high-low)*0.35
 ```
 
-Voir `lbc/domains/aviation.yml` pour un exemple complet.
+Voir `golddigger02/domains/aviation.yml` pour un exemple complet.
+
+## Module `research` (ex-Mach2) — vérification externe
+
+Le pipeline `deals` travaille sur du **JSON structuré** (API leboncoin ou
+`__NEXT_DATA__`) : il n'y a jamais de page éditoriale à nettoyer, donc jamais
+besoin d'extraction markdown à cet endroit. Le module `research`
+(`golddigger02/research.py`) répond à un besoin différent, en aval : quand
+`hidden_model` ou `typo_brand` fait remonter une référence obscure (« Gueneau
+123 », « Kollsman »), vérifier sa rareté/valeur en lisant une page web
+ordinaire — forum de collectionneurs, résultat d'enchères, fiche technique.
+
+C'est un portage direct du cœur de Mach2 (`trafilatura` pour isoler le contenu
+principal d'une page et le convertir en markdown, écriture en fichiers,
+résumé compact en console). Deux différences volontaires :
+
+- **`scrape`/`batch` seulement** — pas `map` (découverte d'URLs d'un site) ni
+  `crawl` (aspiration récursive). Ils ne servent à rien pour vérifier un objet
+  précis et auraient ajouté du poids sans usage réel ici.
+- **Cache unifié** — réutilise la table `responses` du cache SQLite de
+  l'outil (celle qui sert déjà à l'API leboncoin) plutôt que le cache fichier
+  séparé de Mach2. Un seul mécanisme de persistance dans tout GoldDigger02.
+
+```bash
+python3 -m golddigger02 research <url1> <url2>... \
+  --filter "terme du modèle à vérifier" --max-chars 2000
+```
+
+Écrit un `.md` par page (front-matter + contenu) et un `manifest.json` dans
+`~/.cache/golddigger02/research/<horodatage>/` ; la console n'affiche qu'un
+résumé (titre, nb de mots, chemin, ou l'erreur). `--render` bascule sur
+Playwright pour les sites qui affichent leur contenu en JavaScript.
+
+Workflow recommandé pour l'agent : `WebSearch` (outil Claude) pour trouver les
+URLs pertinentes → `research --filter "<modèle>"` pour les récupérer en
+fichiers → lire uniquement les `.md` utiles.
 
 ## Mémoire des annonces vues
 
-SQLite (`~/.cache/lbc/cache.sqlite3`), deux tables distinctes :
-- `responses` : cache des réponses HTTP, TTL configurable (`LBC_CACHE_TTL`,
-  6h par défaut) — évite de refetch la même page ;
+SQLite (`~/.cache/golddigger02/cache.sqlite3`), deux tables distinctes :
+- `responses` : cache des réponses HTTP (leboncoin **et** `research`), TTL
+  configurable (`GD2_CACHE_TTL`, 6h par défaut pour leboncoin, 24h pour
+  `research`) — évite de refetch la même page ;
 - `seen` : chaque annonce déjà affichée par `deals`/`watch`. `watch` (alias de
   `deals --unseen`) ne renvoie que ce qui n'y figure pas encore, souvent zéro
   ligne au bout de quelques passages.
 
-`lbc seen` affiche les statistiques par pack. `lbc seen --forget <id...>` ou
-`--forget-domain <pack>` ou `--all` réarment la mémoire.
+`golddigger02 seen` affiche les statistiques par pack. `golddigger02 seen
+--forget <id...>` ou `--forget-domain <pack>` ou `--all` réarment la mémoire.
+
+L'accès concurrent (le mode `research --concurrency N` interroge le cache
+depuis plusieurs threads) est protégé par un verrou explicite dans `cache.py`
+— sqlite3 refuse par défaut qu'une connexion traverse un thread sans ça.
 
 ## Budget de tokens (mesuré, pas estimé)
 
@@ -156,16 +213,24 @@ descendent sous 300 tokens pour le même volume. `watch` ne renvoie souvent rien
 du tout. Le mode `vision` (images) n'est à utiliser que sur les 2-5 finalistes
 retenus après lecture du tableau compact.
 
+`research` suit le même principe : le contenu complet va sur disque, la
+console ne renvoie qu'un résumé d'une ligne par URL (titre, nb de mots,
+chemin) — jamais la page entière dans le contexte de l'agent.
+
 ## Tests
 
 ```bash
 python3 -m unittest discover tests -v
 ```
 
-111 tests, aucune dépendance externe (stdlib `unittest`). Ils couvrent le
+131 tests, aucune dépendance réseau (stdlib `unittest`). Ils couvrent le
 parsing défensif des payloads, la taxonomie, le chargement des packs, les
 statistiques robustes, chaque signal de score isolément, un scénario
-bout-en-bout avec une pépite plantée et un piège de reproduction à écarter, et
-le format de sortie (y compris le budget de tokens). Le transport réseau réel
-**n'est pas testé ici** — DataDome bloque ce conteneur ; `lbc search "test"
---pages 1` sert de test de fumée à lancer depuis une machine personnelle.
+bout-en-bout avec une pépite plantée et un piège de reproduction à écarter, le
+format de sortie (y compris le budget de tokens), et le module `research`
+(extraction markdown, filtrage par pertinence, écriture de fichiers, et un
+test de régression sur l'accès concurrent au cache SQLite). Le transport réseau
+réel vers leboncoin **n'est pas testé ici** — DataDome bloque ce conteneur ;
+`golddigger02 search "test" --pages 1` sert de test de fumée à lancer depuis
+une machine personnelle. Le module `research`, lui, a été vérifié manuellement
+en conditions réelles (Wikipédia, example.com) en plus de la suite committée.
