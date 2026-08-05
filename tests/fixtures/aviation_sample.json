@@ -1,0 +1,49 @@
+{
+  "total": 4,
+  "ads": [
+    {
+      "list_id": "1001",
+      "subject": "Vieil altimètre trouvé dans un grenier",
+      "body": "Objet ancien trouvé dans le grenier de mon grand-père, je ne sais pas ce que c'est exactement. Marqué Badin dessus avec un numéro de série. En l'état, sans garantie. Succession, à débarrasser rapidement.",
+      "price": 25,
+      "category_id": "40",
+      "location": {"city": "Toulouse", "zipcode": "31000"},
+      "owner": {"type": "private"},
+      "first_publication_date": "2026-08-04 09:00:00",
+      "images": {"nb_images": 2, "urls": ["https://img.example/a1.jpg", "https://img.example/a2.jpg"]}
+    },
+    {
+      "list_id": "1002",
+      "subject": "Réplique déco altimètre style ancien pour salon",
+      "body": "Belle réplique en style ancien, neuve, fabrication artisanale, pour décoration vintage.",
+      "price": 300,
+      "category_id": "40",
+      "location": {"city": "Paris", "zipcode": "75011"},
+      "owner": {"type": "pro"},
+      "first_publication_date": "2026-08-04 08:00:00",
+      "images": {"nb_images": 6, "urls": ["https://img.example/b1.jpg"]}
+    },
+    {
+      "list_id": "1003",
+      "subject": "Altimètre avion Badin d'occasion",
+      "body": "Altimètre Badin en bon état de fonctionnement, complet.",
+      "price": 220,
+      "category_id": "40",
+      "location": {"city": "Lyon", "zipcode": "69001"},
+      "owner": {"type": "pro"},
+      "first_publication_date": "2026-08-01 08:00:00",
+      "images": {"nb_images": 4, "urls": ["https://img.example/c1.jpg"]}
+    },
+    {
+      "list_id": "1004",
+      "subject": "Altimetre badin cadran aviation",
+      "body": "Instrument de bord Badin, plaque constructeur visible, provenance connue.",
+      "price": 240,
+      "category_id": "40",
+      "location": {"city": "Nice", "zipcode": "06000"},
+      "owner": {"type": "private"},
+      "first_publication_date": "2026-08-02 08:00:00",
+      "images": {"nb_images": 5, "urls": ["https://img.example/d1.jpg"]}
+    }
+  ]
+}

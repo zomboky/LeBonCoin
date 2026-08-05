@@ -1,0 +1,117 @@
+name: militaria
+label: Objets militaires de collection
+
+# Ce pack couvre le militaria de collection ordinaire : équipement, insignes,
+# optique, documentation. Il n'inclut volontairement aucun lexique autour des
+# objets dont la vente est réglementée en France (armes soumises à autorisation,
+# symboles interdits).
+categories: [collection, decoration, vetements]
+
+queries:
+  - militaria collection ancien
+  - casque militaire ancien
+  - insigne regiment militaire
+  - brelage equipement militaire
+  - gourde quart militaire
+  - jumelles militaires
+  - boussole militaire
+  - medaille militaire ancienne
+  - veste militaire vintage
+  - musette sac militaire
+  - documentation militaire ancienne
+  - lot militaire grenier
+  - surplus militaire ancien
+  - equipement indochine algerie
+
+brands:
+  - Adrian
+  - Lemaire
+  - Huet
+  - OPL
+  - SOM
+  - Drago
+  - Arthus Bertrand
+  - Delsart
+  - Augis
+  - Balme
+  - Coudurier
+  - Zeiss
+  - Kern
+  - Barr and Stroud
+
+models:
+  - {pattern: "casque\\s*adrian\\s*(19)?\\d{2}", name: "Casque Adrian", tier: "high"}
+  - {pattern: "mod[eè]le\\s*(19)?\\d{2}", name: "modèle daté"}
+  - {pattern: "drago\\s*(paris)?\\s*[a-z0-9.]{0,8}", name: "Drago"}
+  - {pattern: "arthus\\s*bertrand", name: "Arthus Bertrand"}
+  - {pattern: "\\bm\\d{2}\\b", name: "modèle M"}
+  - {pattern: "indochine|alg[eé]rie|aefe", name: "conflit daté"}
+  - {pattern: "1[89]\\d{2}[- ]?1[89]\\d{2}", name: "période datée"}
+
+typos:
+  militeria: militaria
+  militaira: militaria
+  adrien: Adrian
+  insingne: insigne
+  medailles: médailles
+  regimant: régiment
+  jumelle: jumelles
+
+origin_markers:
+  - marquage
+  - poincon
+  - poinçon
+  - tampon
+  - date
+  - datee
+  - datée
+  - matricule
+  - numero de serie
+  - numéro de série
+  - fabricant
+  - homologation
+  - attribue
+  - attribué
+  - avec son
+  - provenance
+  - jus de grenier
+  - dans son jus
+
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - refabrication
+  - copie
+  - style militaire
+  - deco
+  - déco
+  - airsoft
+  - cosplay
+  - carnaval
+  - deguisement
+  - déguisement
+  - neuf
+  - moderne
+
+premium:
+  - casque adrian
+  - attribue
+  - attribué
+  - matricule
+  - jumelles
+  - lunette
+  - poincon
+  - poinçon
+  - officier
+
+value_bands:
+  - {match: "casque\\s*adrian", low: 80, high: 600}
+  - {match: "jumelles|lunette\\s*(de\\s*)?vis[eé]e", low: 60, high: 500}
+  - {match: "boussole|compas", low: 25, high: 200}
+  - {match: "brelage|[eé]quipement\\s*complet", low: 40, high: 300}
+  - {match: "veste|vareuse|capote", low: 40, high: 350}
+  - {match: "m[eé]daille|d[eé]coration", low: 15, high: 250}
+  - {match: "insigne|badge|[eé]cusson", low: 8, high: 120}
+  - {match: "gourde|quart|musette", low: 12, high: 90}
+  - {match: "documentation|livret|carnet", low: 10, high: 150}

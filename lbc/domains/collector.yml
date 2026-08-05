@@ -1,0 +1,113 @@
+name: collector
+label: Objets collector génériques (tirages, numérotés, jouets anciens)
+
+# Pack transverse, à lancer quand on ratisse large : il ne connaît pas de marque
+# particulière mais reconnaît les marqueurs de rareté qui traversent tous les
+# domaines — numéroté, signé, édition originale, épreuve d'artiste.
+categories: [collection, decoration, livres, jeux_jouets]
+
+queries:
+  - lot grenier ancien a identifier
+  - objet ancien rare collection
+  - succession vide maison collection
+  - jouet tole ancien
+  - affiche originale ancienne
+  - edition originale numerotee
+  - lithographie signee numerotee
+  - piece unique artisanale ancienne
+  - prototype rare
+  - objet publicitaire ancien
+
+brands:
+  - Dinky Toys
+  - Solido
+  - JEP
+  - Hornby
+  - Marklin
+  - Meccano
+  - CIJ
+  - Norev
+  - Majorette
+  - Steiff
+  - Lehmann
+  - Bing
+
+models:
+  - {pattern: "num[eé]rot[eé]\\s*\\d+\\s*/\\s*\\d+", name: "numéroté", tier: "high"}
+  - {pattern: "[eé]preuve\\s*d'?artiste|\\bea\\b", name: "épreuve d'artiste", tier: "high"}
+  - {pattern: "[eé]dition\\s*originale|\\beo\\b", name: "édition originale", tier: "high"}
+  - {pattern: "tirage\\s*limit[eé]", name: "tirage limité"}
+  - {pattern: "sign[eé]\\s*(par|de\\s*la\\s*main)", name: "signé", tier: "high"}
+  - {pattern: "prototype|pr[eé]-?s[eé]rie", name: "prototype", tier: "grail"}
+  - {pattern: "dinky\\s*toys?\\s*\\d{2,3}", name: "Dinky Toys"}
+  - {pattern: "t[oô]le\\s*(lithographi[eé]e|m[eé]canique)", name: "jouet tôle", tier: "high"}
+  - {pattern: "1[6-9]\\d{2}\\b", name: "daté ancien"}
+
+typos:
+  numerote: numéroté
+  litographie: lithographie
+  lithografie: lithographie
+  dinkytoys: Dinky Toys
+  merklin: Marklin
+  meccanno: Meccano
+  steif: Steiff
+
+origin_markers:
+  - signe
+  - signé
+  - numerote
+  - numéroté
+  - cachet
+  - tampon
+  - poincon
+  - poinçon
+  - certificat
+  - provenance
+  - succession
+  - facture d'epoque
+  - facture d'époque
+  - dans son jus
+  - jus de grenier
+  - boite d'origine
+  - boîte d'origine
+  - datee
+  - datée
+
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - copie
+  - reedition
+  - réédition
+  - tirage moderne
+  - style ancien
+  - deco vintage
+  - déco vintage
+  - impression numerique
+  - impression numérique
+  - poster
+  - neuf
+
+premium:
+  - numerote
+  - numéroté
+  - epreuve d'artiste
+  - épreuve d'artiste
+  - edition originale
+  - édition originale
+  - prototype
+  - piece unique
+  - pièce unique
+  - signe par
+  - signé par
+
+value_bands:
+  - {match: "prototype|pr[eé]-?s[eé]rie|pi[eè]ce\\s*unique", low: 200, high: 3000}
+  - {match: "[eé]dition\\s*originale|\\beo\\b", low: 60, high: 1500}
+  - {match: "num[eé]rot[eé]|[eé]preuve\\s*d'?artiste", low: 80, high: 1200}
+  - {match: "affiche\\s*originale|lithographie", low: 50, high: 800}
+  - {match: "t[oô]le\\s*(lithographi[eé]e|m[eé]canique)|jep|lehmann", low: 80, high: 900}
+  - {match: "dinky|solido|norev|cij", low: 15, high: 250}
+  - {match: "m[aä]rklin|hornby|meccano", low: 30, high: 500}
+  - {match: "steiff", low: 40, high: 600}

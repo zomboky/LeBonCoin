@@ -1,0 +1,103 @@
+name: michelin
+label: Michelin collector (Bibendum, plaques, guides, cartes)
+
+categories: [collection, decoration, livres]
+
+# Terrain saturé de reproductions : les plaques émaillées « style ancien » se
+# vendent neuves à 30 €. Le lexique `repro_markers` est donc ce qui porte ce pack.
+queries:
+  - michelin bibendum
+  - plaque emaillee michelin
+  - bibendum michelin ancien
+  - cendrier michelin
+  - guide michelin ancien
+  - carte michelin ancienne
+  - publicite michelin
+  - nain michelin
+  - michelin tole lithographiee
+  - michelin collection vintage
+  - porte cles michelin
+  - compteur michelin
+
+brands:
+  - Michelin
+  - Bibendum
+  - Bib
+
+models:
+  - {pattern: "plaque\\s*[eé]maill[eé]e", name: "plaque émaillée", tier: "high"}
+  - {pattern: "t[oô]le\\s*lithographi[eé]e", name: "tôle lithographiée", tier: "high"}
+  - {pattern: "guide\\s*(rouge|vert)\\s*(19|20)\\d{2}", name: "Guide Michelin daté"}
+  - {pattern: "bibendum\\s*(en\\s*)?(pl[aâ]tre|r[eé]sine|fonte|caoutchouc)", name: "Bibendum figurine"}
+  - {pattern: "cendrier\\s*(michelin|bibendum)", name: "cendrier Michelin"}
+  - {pattern: "nain\\s*michelin", name: "nain Michelin", tier: "high"}
+  - {pattern: "compteur\\s*michelin", name: "compteur Michelin"}
+  - {pattern: "michelin\\s*man", name: "Bibendum"}
+
+typos:
+  michlin: Michelin
+  michelein: Michelin
+  micheline: Michelin
+  bibendom: Bibendum
+  bibendume: Bibendum
+  emaille: émaillée
+
+origin_markers:
+  - epoque
+  - époque
+  - authentique
+  - d'origine
+  - annees 30
+  - années 30
+  - annees 50
+  - années 50
+  - avant guerre
+  - patine
+  - patine d'origine
+  - jus de grenier
+  - grenier
+  - eclats
+  - éclats
+  - rouille
+  - garage
+
+# Les mots qui doivent faire fuir : ils décrivent une repro de décoration.
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - style ancien
+  - style vintage
+  - deco vintage
+  - déco vintage
+  - neuf
+  - neuve
+  - jamais servi
+  - retro moderne
+  - rétro moderne
+  - fabrication recente
+  - fabrication récente
+  - copie
+  - refabrication
+  - impression
+
+premium:
+  - plaque emaillee
+  - plaque émaillée
+  - tole lithographiee
+  - tôle lithographiée
+  - nain michelin
+  - avant guerre
+  - compteur
+
+value_bands:
+  - {match: "nain\\s*michelin", low: 400, high: 3000}
+  - {match: "plaque\\s*[eé]maill[eé]e", low: 150, high: 1500}
+  - {match: "t[oô]le\\s*lithographi[eé]e", low: 200, high: 2000}
+  - {match: "compteur", low: 150, high: 900}
+  - {match: "bibendum.*(pl[aâ]tre|fonte|r[eé]sine)", low: 100, high: 900}
+  - {match: "cendrier", low: 30, high: 250}
+  - {match: "guide\\s*rouge.*(19[0-4]\\d)", low: 40, high: 400}
+  - {match: "guide\\s*(rouge|vert)", low: 5, high: 40}
+  - {match: "carte\\s*michelin", low: 3, high: 30}
+  - {match: "porte[- ]?cl[eé]s", low: 5, high: 60}

@@ -1,0 +1,103 @@
+name: flight-sim
+label: Simulateur de vol — matériel et cockpits
+
+categories: [informatique, consoles_jeux_video, collection]
+
+queries:
+  - simulateur de vol materiel
+  - joystick hotas
+  - palonnier simulateur
+  - manche thrustmaster warthog
+  - honeycomb alpha bravo
+  - cockpit simulateur avion
+  - panel simulateur vol
+  - virpil vkb joystick
+  - saitek pro flight
+  - trackir
+  - yoke simulateur
+  - mfd cougar
+  - quadrant de gaz simulateur
+
+brands:
+  - Thrustmaster
+  - Honeycomb
+  - Virpil
+  - VKB
+  - Saitek
+  - Logitech
+  - CH Products
+  - Brunner
+  - Fulcrum
+  - WinWing
+  - MFG Crosswind
+  - TrackIR
+  - NaturalPoint
+  - Buttkicker
+  - Realsimulator
+
+models:
+  - {pattern: "warthog|hotas\\s*warthog", name: "TM Warthog", tier: "high"}
+  - {pattern: "tpr\\s*pendular|t\\.?pendular", name: "TM TPR"}
+  - {pattern: "t\\.?16000m?", name: "T.16000M"}
+  - {pattern: "alpha\\s*(flight|yoke)", name: "Honeycomb Alpha"}
+  - {pattern: "bravo\\s*(throttle|quadrant)", name: "Honeycomb Bravo"}
+  - {pattern: "crosswind\\s*v[0-9]?", name: "MFG Crosswind", tier: "high"}
+  - {pattern: "vpc\\s*[a-z0-9-]+|mongoos?t", name: "Virpil"}
+  - {pattern: "gunfighter\\s*(mk\\.?\\s*[iv]+)?", name: "VKB Gunfighter", tier: "high"}
+  - {pattern: "cougar\\s*mfd", name: "Cougar MFD"}
+  - {pattern: "x-?5[25]\\s*pro|x-?56", name: "Saitek X52/X56"}
+  - {pattern: "track\\s*ir\\s*[45]", name: "TrackIR"}
+
+typos:
+  thrustmater: Thrustmaster
+  trustmaster: Thrustmaster
+  thustmaster: Thrustmaster
+  honeycom: Honeycomb
+  saitech: Saitek
+  wartog: Warthog
+  warthhog: Warthog
+  palonier: palonnier
+  simulateure: simulateur
+
+origin_markers:
+  - facture
+  - boite d'origine
+  - boîte d'origine
+  - complet
+  - jamais servi
+  - garantie
+  - sous garantie
+  - numero de serie
+  - numéro de série
+
+repro_markers:
+  - impression 3d
+  - fabrication artisanale
+  - non fonctionnel
+  - pour pieces
+  - pour pièces
+  - hs
+  - ne fonctionne plus
+  - coque seule
+
+premium:
+  - warthog
+  - virpil
+  - vkb
+  - crosswind
+  - brunner
+  - winwing
+  - cockpit complet
+  - gunfighter
+
+value_bands:
+  - {match: "brunner", low: 700, high: 3000}
+  - {match: "cockpit\\s*(complet|simulateur)", low: 400, high: 4000}
+  - {match: "warthog", low: 250, high: 500}
+  - {match: "crosswind|mfg", low: 250, high: 500}
+  - {match: "virpil|vpc|gunfighter", low: 200, high: 600}
+  - {match: "honeycomb|alpha\\s*flight|bravo\\s*throttle", low: 120, high: 350}
+  - {match: "palonnier|rudder|pedale", low: 80, high: 400}
+  - {match: "yoke", low: 80, high: 350}
+  - {match: "x-?5[26]|saitek|logitech", low: 40, high: 180}
+  - {match: "track\\s*ir", low: 60, high: 180}

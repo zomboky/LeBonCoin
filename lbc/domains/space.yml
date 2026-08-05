@@ -1,0 +1,113 @@
+name: space
+label: Conquête spatiale — pièces et objets originaux
+
+categories: [collection, decoration, livres]
+
+queries:
+  - conquete spatiale
+  - objet nasa original
+  - patch mission nasa
+  - apollo nasa
+  - soyouz cosmonaute
+  - spoutnik urss
+  - ariane espace piece
+  - cnes espace
+  - combinaison cosmonaute
+  - documentation nasa
+  - photo nasa originale
+  - kapton satellite
+  - fusee vintage jouet
+  - gagarine urss
+
+brands:
+  - NASA
+  - CNES
+  - ESA
+  - Roscosmos
+  - Energia
+  - Zvezda
+  - Grumman
+  - Rockwell
+  - McDonnell
+  - Arianespace
+  - Omega
+  - Fisher
+
+models:
+  - {pattern: "apollo\\s*(1[0-9]|[1-9])", name: "Apollo"}
+  - {pattern: "gemini\\s*[0-9ivx]{1,4}", name: "Gemini"}
+  - {pattern: "soyou?z\\s*[a-z0-9-]{0,5}", name: "Soyouz"}
+  - {pattern: "vostok\\s*\\d?", name: "Vostok"}
+  - {pattern: "spoutnik|sputnik", name: "Spoutnik"}
+  - {pattern: "ariane\\s*[1-6]", name: "Ariane"}
+  - {pattern: "sts[- ]?\\d{1,3}", name: "Navette STS"}
+  - {pattern: "speedmaster\\s*(professional)?", name: "Omega Speedmaster"}
+  - {pattern: "robbins\\s*medal", name: "Robbins medal"}
+  - {pattern: "space\\s*shuttle", name: "Space Shuttle"}
+
+typos:
+  spoutnick: Spoutnik
+  soyus: Soyouz
+  apolo: Apollo
+  gagarin: Gagarine
+  cosmonote: cosmonaute
+  navete: navette
+
+# « flown » (ayant volé) est le mot qui sépare une babiole d'une pièce à 4 chiffres.
+origin_markers:
+  - flown
+  - ayant vole
+  - ayant volé
+  - certificat
+  - certificat d'authenticite
+  - certificat d'authenticité
+  - coa
+  - provenance
+  - numero de serie
+  - numéro de série
+  - tampon nasa
+  - dedicace
+  - dédicace
+  - signe par
+  - signé par
+  - autographe
+  - archives
+  - presse originale
+
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - maquette
+  - poster
+  - tirage moderne
+  - reedition
+  - réédition
+  - souvenir shop
+  - boutique musee
+  - boutique musée
+  - impression
+  - sticker
+  - patch moderne
+  - copie
+
+premium:
+  - flown
+  - apollo
+  - autographe
+  - dedicace
+  - dédicace
+  - robbins
+  - kapton
+  - combinaison
+  - speedmaster
+
+value_bands:
+  - {match: "flown|ayant\\s*vol[eé]", low: 500, high: 8000}
+  - {match: "autographe|d[eé]dicace|sign[eé]\\s*par", low: 150, high: 3000}
+  - {match: "combinaison|scaphandre", low: 400, high: 5000}
+  - {match: "speedmaster", low: 1500, high: 6000}
+  - {match: "kapton|bouclier|heat\\s*shield", low: 120, high: 1200}
+  - {match: "photo\\s*(originale|nasa)|tirage\\s*argentique", low: 40, high: 600}
+  - {match: "patch|[eé]cusson", low: 8, high: 90}
+  - {match: "documentation|manuel|press\\s*kit", low: 25, high: 400}

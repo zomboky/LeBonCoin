@@ -1,0 +1,135 @@
+name: vintage-clothing
+label: Vêtements de style vintage
+
+# Domaine où le signal « modèle caché » est le plus rentable : le vendeur écrit
+# « veste en jean bleue » et la référence qui vaut dix fois le prix demandé est
+# sur l'étiquette, mentionnée en fin de description — ou seulement visible en photo.
+categories: [vetements, chaussures, accessoires_bagagerie]
+
+queries:
+  - veste vintage annees 70
+  - blouson cuir vintage
+  - jean vintage annees 80
+  - veste militaire vintage homme
+  - manteau laine vintage
+  - chemise vintage homme
+  - workwear francais ancien
+  - veste moleskine ancienne
+  - pull laine vintage
+  - trench vintage
+  - bombers vintage
+  - parka vintage
+
+brands:
+  - Levi's
+  - Lee
+  - Wrangler
+  - Schott
+  - Perfecto
+  - Barbour
+  - Belstaff
+  - Baracuta
+  - Harrington
+  - Filson
+  - Carhartt
+  - Dickies
+  - Adolphe Lafont
+  - Le Mont Saint Michel
+  - Vetra
+  - Lacoste
+  - Burberry
+  - Aquascutum
+  - Alpha Industries
+  - Avirex
+  - Redskins
+  - Chevignon
+  - Woolrich
+  - Patagonia
+  - The North Face
+  - Ralph Lauren
+  - Saint James
+
+models:
+  - {pattern: "big\\s*e\\b", name: "Levi's Big E", tier: "grail"}
+  - {pattern: "redline|selvedge|selvage", name: "selvedge", tier: "high"}
+  - {pattern: "50[0-9]\\s*xx|501\\s*xx", name: "Levi's 501XX", tier: "grail"}
+  - {pattern: "\\b50[0-9]\\b", name: "Levi's 50x"}
+  - {pattern: "\\b101\\b|lee\\s*storm", name: "Lee 101"}
+  - {pattern: "perfecto|schott\\s*618|schott\\s*641", name: "Schott Perfecto", tier: "high"}
+  - {pattern: "g-?9|baracuta", name: "Baracuta G9", tier: "high"}
+  - {pattern: "bedale|beaufort|border|international", name: "Barbour modèle", tier: "high"}
+  - {pattern: "trialmaster|roadmaster", name: "Belstaff Trialmaster", tier: "grail"}
+  - {pattern: "m-?65|n-?[123]b|b-?15|a-?2\\b", name: "surplus US"}
+  - {pattern: "mackinaw|cruiser", name: "Filson Cruiser", tier: "high"}
+  - {pattern: "moleskine|bleu\\s*de\\s*travail", name: "workwear français"}
+  - {pattern: "made\\s*in\\s*(usa|france|england|scotland)", name: "fabrication origine"}
+
+typos:
+  levis: Levi's
+  levi: Levi's
+  levies: Levi's
+  schot: Schott
+  shott: Schott
+  barbours: Barbour
+  barbourg: Barbour
+  belstaf: Belstaff
+  carhart: Carhartt
+  carharrt: Carhartt
+  baracutta: Baracuta
+  perfectos: Perfecto
+  wrangle: Wrangler
+
+origin_markers:
+  - etiquette
+  - étiquette
+  - made in usa
+  - made in france
+  - made in england
+  - single stitch
+  - selvedge
+  - talon rouge
+  - patch cuir
+  - annees 70
+  - années 70
+  - annees 80
+  - années 80
+  - vintage authentique
+  - repare
+  - reprisé
+  - patine
+
+repro_markers:
+  - style vintage
+  - inspiration vintage
+  - reedition
+  - réédition
+  - neuf avec etiquette
+  - fast fashion
+  - shein
+  - primark
+  - copie
+  - contrefacon
+  - contrefaçon
+  - reproduction
+
+premium:
+  - big e
+  - selvedge
+  - redline
+  - trialmaster
+  - perfecto
+  - made in usa
+  - made in england
+  - single stitch
+  - talon rouge
+
+value_bands:
+  - {match: "big\\s*e|50[0-9]\\s*xx", low: 200, high: 2000}
+  - {match: "trialmaster|belstaff", low: 200, high: 1200}
+  - {match: "perfecto|schott", low: 150, high: 700}
+  - {match: "barbour|filson|baracuta", low: 60, high: 400}
+  - {match: "blouson\\s*cuir|veste\\s*cuir", low: 50, high: 400}
+  - {match: "m-?65|parka|n-?[123]b", low: 40, high: 250}
+  - {match: "levi|lee|wrangler|jean", low: 25, high: 200}
+  - {match: "moleskine|bleu\\s*de\\s*travail|vetra", low: 25, high: 200}
+  - {match: "pull|chemise|sweat", low: 12, high: 100}

@@ -1,0 +1,130 @@
+name: tech-vintage
+label: Objets technologiques anciens & high-tech rare
+
+categories: [informatique, image_son, collection, consoles_jeux_video]
+
+queries:
+  - ordinateur vintage annees 80
+  - micro ordinateur ancien
+  - apple macintosh vintage
+  - commodore amiga atari
+  - minitel telematique
+  - calculatrice hp vintage
+  - oscilloscope tektronix
+  - tube nixie horloge
+  - station de travail silicon graphics
+  - materiel informatique ancien grenier
+  - synthetiseur analogique vintage
+  - appareil mesure laboratoire ancien
+  - radio a lampes ancienne
+  - telegraphe telex ancien
+
+brands:
+  - Apple
+  - Commodore
+  - Atari
+  - Amstrad
+  - Sinclair
+  - Thomson
+  - Oric
+  - Amiga
+  - NeXT
+  - Silicon Graphics
+  - Sun Microsystems
+  - DEC
+  - IBM
+  - Tektronix
+  - Hewlett-Packard
+  - Braun
+  - Nixdorf
+  - Olivetti
+  - Bull
+  - Micral
+  - Texas Instruments
+  - Casio
+  - Sharp
+
+models:
+  - {pattern: "apple\\s*(i|1|lisa)\\b", name: "Apple I/Lisa", tier: "grail"}
+  - {pattern: "apple\\s*(ii|2)(e|c|gs)?", name: "Apple II", tier: "high"}
+  - {pattern: "macintosh\\s*(128|512|plus|se|classic)", name: "Macintosh early", tier: "high"}
+  - {pattern: "next\\s*(cube|station)", name: "NeXT", tier: "grail"}
+  - {pattern: "amiga\\s*(500|600|1200|2000|3000|4000)", name: "Amiga"}
+  - {pattern: "atari\\s*(st|ste|800|2600|falcon)", name: "Atari"}
+  - {pattern: "commodore\\s*(64|128|pet|vic)", name: "Commodore"}
+  - {pattern: "zx\\s*(80|81|spectrum)", name: "Sinclair ZX"}
+  - {pattern: "hp[- ]?(41c?[vx]?|48g?x?|35|65|97)", name: "HP calculatrice", tier: "high"}
+  - {pattern: "sgi|indigo|octane|o2\\b", name: "Silicon Graphics"}
+  - {pattern: "micral\\s*[a-z0-9]*", name: "Micral", tier: "grail"}
+  - {pattern: "tektronix\\s*\\d{3,4}", name: "Tektronix"}
+  - {pattern: "nixie", name: "tubes Nixie", tier: "high"}
+  - {pattern: "minitel\\s*\\d?", name: "Minitel"}
+
+typos:
+  commodor: Commodore
+  comodore: Commodore
+  macintoch: Macintosh
+  machintosh: Macintosh
+  amstradd: Amstrad
+  sinclaire: Sinclair
+  tektronics: Tektronix
+  tektronic: Tektronix
+  hewlet: Hewlett-Packard
+  siliconne: Silicon
+  amigua: Amiga
+
+origin_markers:
+  - fonctionne
+  - teste
+  - testé
+  - boite d'origine
+  - boîte d'origine
+  - complet
+  - avec documentation
+  - disquettes
+  - notice
+  - facture
+  - numero de serie
+  - numéro de série
+  - premiere serie
+  - première série
+
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - clone moderne
+  - raspberry
+  - emulateur
+  - émulateur
+  - impression 3d
+  - kit a monter
+  - kit à monter
+  - recreation
+  - recréation
+
+premium:
+  - apple i
+  - apple lisa
+  - next cube
+  - micral
+  - nixie
+  - silicon graphics
+  - premiere serie
+  - prototype
+  - hp-41
+  - macintosh 128
+
+value_bands:
+  - {match: "apple\\s*(i|1)\\b|micral|next\\s*cube", low: 2000, high: 20000}
+  - {match: "lisa|macintosh\\s*128", low: 800, high: 6000}
+  - {match: "silicon\\s*graphics|sgi|indigo|octane", low: 150, high: 1200}
+  - {match: "apple\\s*(ii|2)", low: 200, high: 1500}
+  - {match: "amiga\\s*(3000|4000)", low: 250, high: 1500}
+  - {match: "amiga\\s*(500|600|1200)|atari\\s*st", low: 100, high: 500}
+  - {match: "commodore\\s*(64|128|pet)", low: 80, high: 600}
+  - {match: "hp[- ]?(41|65|35)", low: 100, high: 700}
+  - {match: "nixie", low: 60, high: 500}
+  - {match: "tektronix|oscilloscope", low: 60, high: 700}
+  - {match: "minitel", low: 20, high: 150}
+  - {match: "zx\\s*(81|spectrum)", low: 50, high: 350}

@@ -1,0 +1,130 @@
+name: aviation
+label: Aviation originale & collector (dont avions de chasse)
+
+# L'aviation ne vit pas dans une seule catégorie : les instruments partent en
+# Collection, les hélices en Décoration, les casques en Militaria.
+categories: [collection, decoration, bricolage]
+
+queries:
+  - instrument de bord avion
+  - altimetre avion
+  - cadran avion
+  - horloge de bord avion
+  - manche a balai avion
+  - casque pilote militaire
+  - combinaison de vol pilote
+  - helice bois avion
+  - siege ejectable
+  - plaque constructeur avion
+  - badge escadrille
+  - insigne patrouille de france
+  - masque oxygene pilote
+  - documentation technique avion
+  - manuel de vol avion
+  - piece avion mirage
+  - piece avion rafale
+
+brands:
+  - Jaeger
+  - Badin
+  - Kollsman
+  - Bendix
+  - Smiths
+  - SFENA
+  - Crouzet
+  - Sagem
+  - Thomson-CSF
+  - Ulmer
+  - Aerosonic
+  - Honeywell
+  - Collins
+  - Gueneau
+  - Intertechnique
+  - Martin-Baker
+  - Dassault
+  - Sud Aviation
+  - Breguet
+  - Nord Aviation
+
+models:
+  - {pattern: "badin\\s*[a-z0-9-]{0,6}", name: "Badin"}
+  - {pattern: "mirage\\s*(iii|iv|f1|2000|III|IV)", name: "Mirage"}
+  - {pattern: "rafale\\s*[abcm]?", name: "Rafale"}
+  - {pattern: "alpha\\s*jet", name: "Alpha Jet"}
+  - {pattern: "super\\s*etendard", name: "Super Étendard"}
+  - {pattern: "fouga\\s*magister", name: "Fouga Magister"}
+  - {pattern: "martin[- ]?baker\\s*mk\\.?\\s*\\d+", name: "Martin-Baker"}
+  - {pattern: "gueneau\\s*\\d{2,3}", name: "Gueneau"}
+  - {pattern: "\\bp/?n\\s*[:.]?\\s*[0-9a-z-]{5,}", name: "part number"}
+  - {pattern: "\\bnsn\\s*[:.]?\\s*[0-9-]{9,}", name: "NSN"}
+
+typos:
+  jaegger: Jaeger
+  kolsman: Kollsman
+  kollsmann: Kollsman
+  bendics: Bendix
+  crouset: Crouzet
+  helicoptaire: hélicoptère
+  ejectible: éjectable
+  altimetre: altimètre
+
+# Ce qui atteste d'une pièce réellement déposée d'un aéronef.
+origin_markers:
+  - plaque constructeur
+  - numero de serie
+  - numéro de série
+  - part number
+  - "p/n"
+  - nsn
+  - demilitarise
+  - démilitarisé
+  - certificat
+  - depose de
+  - déposé de
+  - provenance
+  - carnet
+  - tampon
+  - homologue
+  - form 1
+  - easa
+
+repro_markers:
+  - reproduction
+  - replique
+  - réplique
+  - maquette
+  - poster
+  - affiche moderne
+  - sticker
+  - autocollant
+  - diecast
+  - style ancien
+  - deco vintage
+  - déco vintage
+  - fabrication artisanale
+  - impression 3d
+
+premium:
+  - siege ejectable
+  - siège éjectable
+  - martin-baker
+  - patrouille de france
+  - helice bois
+  - hélice bois
+  - horloge de bord
+  - manche a balai
+  - verriere
+  - verrière
+
+value_bands:
+  - {match: "si[eè]ge\\s*[eé]jectable", low: 900, high: 6000}
+  - {match: "verri[eè]re", low: 400, high: 2500}
+  - {match: "h[eé]lice\\s*(bois|bipale)", low: 300, high: 2500}
+  - {match: "manche\\s*[aà]\\s*balai", low: 120, high: 700}
+  - {match: "horloge\\s*de\\s*bord", low: 90, high: 500}
+  - {match: "masque\\s*(a\\s*)?oxyg[eè]ne", low: 60, high: 350}
+  - {match: "casque\\s*(de\\s*)?pilote", low: 150, high: 1200}
+  - {match: "combinaison\\s*de\\s*vol", low: 80, high: 500}
+  - {match: "altim[eè]tre|variom[eè]tre|an[eé]mom[eè]tre|badin", low: 60, high: 400}
+  - {match: "insigne|badge|patch", low: 10, high: 120}
+  - {match: "cadran|instrument", low: 40, high: 300}
