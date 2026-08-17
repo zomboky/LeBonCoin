@@ -27,6 +27,12 @@ _STOPWORDS = {
 
 _WORD_RX = re.compile(r"[a-z0-9]+")
 
+# Incrémenté à chaque changement de la manière dont `cohort_signature` calcule
+# une clé — les statistiques persistées (cache.py, table `cohort_stats`) sont
+# indexées par clé versionnée, pour qu'un changement de logique invalide
+# automatiquement les anciennes lignes plutôt que d'exiger un effacement manuel.
+SIGNATURE_VERSION = 2
+
 
 def normalize(text: str) -> str:
     """Minuscules, sans accents. Base de toutes les comparaisons."""
@@ -52,20 +58,50 @@ def content_tokens(text: str) -> list[str]:
     return out
 
 
+def _token_rank(token: str, domain: Domain | None) -> tuple:
+    """Plus le tuple est petit, plus le token discrimine.
+
+    Une marque ou un modèle du pack l'emporte sur tout ; à défaut, un token
+    contenant un chiffre (référence, P/N, millésime) ; à défaut, le mot le
+    plus long.
+    """
+    if domain is not None:
+        norm = normalize(token)
+        if any(norm == normalize(b) for b in domain.brands):
+            return (0, 0, token)
+        if any(rule.search(token) for rule in domain.models):
+            return (0, 1, token)
+    if any(c.isdigit() for c in token):
+        return (1, -len(token), token)
+    return (2, -len(token), token)
+
+
 def cohort_signature(listing, domain: Domain | None = None) -> str:
     """Clé de regroupement des annonces comparables.
 
     Le modèle extrait prime : deux annonces du même modèle sont comparables même
     si les titres n'ont rien à voir. Sinon on retombe sur les tokens les plus
-    porteurs du titre, triés pour que l'ordre des mots n'importe pas.
-    """
-    if listing.model:
-        return f"{listing.category_id}:{normalize(listing.model)}"
+    discriminants du titre (classés, puis tronqués, puis retriés pour la
+    jointure) — l'ordre des mots dans le titre original n'a pas d'importance.
 
-    words = content_tokens(listing.title)[:4]
+    Le préfixe est la catégorie de l'annonce, sauf si le pack déclare plusieurs
+    catégories : il affirme alors qu'elles contiennent le même genre de biens
+    (ex. un altimètre listé en Collection ou en Décoration), et prendre la
+    catégorie comme préfixe fragmenterait la cohorte d'un même objet.
+    """
+    if domain is not None and len(domain.category_ids) > 1:
+        prefix = domain.name
+    else:
+        prefix = listing.category_id
+
+    if listing.model:
+        return f"{prefix}:{normalize(listing.model)}"
+
+    ranked = sorted(set(content_tokens(listing.title)), key=lambda t: _token_rank(t, domain))
+    words = ranked[:4]
     if not words:
-        return f"{listing.category_id}:?"
-    return f"{listing.category_id}:" + "_".join(sorted(set(words)))
+        return f"{prefix}:?"
+    return f"{prefix}:" + "_".join(sorted(words))
 
 
 def find_markers(text: str, markers: list[str]) -> list[str]:

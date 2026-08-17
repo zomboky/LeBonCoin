@@ -76,15 +76,32 @@ WEIGHTS: dict[str, float] = {
     "hidden_model": 2.0,   # modèle présent dans la description mais absent du titre
     "brand_tier": 1.4,     # marque/modèle haut de gamme vendu au prix du bas de gamme
     "typo_brand": 1.2,     # marque mal orthographiée : l'annonce sort de peu de recherches
+    "authenticity": 1.0,   # marqueurs d'origine trouvés — pendant positif de repro_markers
+    "price_drop": 1.0,     # baisse observée depuis un passage précédent
     "weak_listing": 0.8,   # annonce bâclée : peu de photos, description courte
     "urgency": 0.6,        # « déménagement », « succession », « urgent »
-    "private_seller": 0.4, # un particulier price moins juste qu'un pro
     "freshness": 0.5,      # annonce récente : il faut être le premier
+    "private_seller": 0.4, # un particulier price moins juste qu'un pro
 }
+
+# Confiance accordée à `price_gap` selon la dispersion de la cohorte (cf. A3
+# dans le plan). Un z robuste de 2 ≈ nettement hors du peloton = crédit plein.
+GAP_CONFIDENCE_Z = float(os.environ.get("GD2_GAP_CONFIDENCE_Z", "2.0"))
+# Un vrai rabais ne doit jamais être totalement effacé par une cohorte bruyante.
+MIN_GAP_CONFIDENCE = float(os.environ.get("GD2_MIN_GAP_CONFIDENCE", "0.35"))
 
 # En dessous de ce nombre d'annonces comparables, on ne fait pas confiance à la
 # médiane et le signal prix est neutralisé.
 MIN_COHORT = int(os.environ.get("GD2_MIN_COHORT", "5"))
+
+# Péremption des médianes de cohorte persistées (D2), en secondes. Assez long
+# pour qu'un objet rare trimestriel garde une référence, assez court pour
+# qu'un marché effondré se corrige en une saison.
+COHORT_STAT_TTL = int(os.environ.get("GD2_COHORT_STAT_TTL", str(90 * 24 * 3600)))
+
+# Poids de l'observation la plus récente dans la médiane persistée (EWMA) :
+# un run anormal déplace la valeur de 30%, pas de 100%, et se corrige seul.
+COHORT_STAT_ALPHA = float(os.environ.get("GD2_COHORT_STAT_ALPHA", "0.3"))
 
 
 def ensure_dirs() -> None:

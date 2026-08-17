@@ -139,6 +139,30 @@ class TestCohortSignature(unittest.TestCase):
         listing = Listing(id="1", category_id="40", title="")
         self.assertTrue(cohort_signature(listing).startswith("40:"))
 
+    def test_signature_insensible_a_l_ordre_des_mots(self):
+        # Plus de 4 tokens de contenu : sans le tri par pouvoir discriminant
+        # avant troncature, un simple réordonnancement change les 4 retenus.
+        a = Listing(id="1", category_id="40", title="Casque pilote militaire cuir marron ancien")
+        b = Listing(id="2", category_id="40", title="Ancien marron cuir militaire pilote casque")
+        self.assertEqual(cohort_signature(a), cohort_signature(b))
+
+    def test_signature_retient_le_token_le_plus_discriminant(self):
+        domain = make_aviation_domain()
+        listing = Listing(
+            id="1", category_id="40",
+            title="Altimètre Badin ancien belle piece a saisir",
+        )
+        sig = cohort_signature(listing, domain)
+        self.assertIn("badin", sig)
+
+    def test_pack_multi_categories_regroupe_les_categories(self):
+        domain = Domain(name="aviation", categories=["collection", "decoration"])
+        collection = Listing(id="1", category_id="40", title="Altimètre avion ancien rare")
+        decoration = Listing(id="2", category_id="24", title="Altimètre avion ancien rare")
+        self.assertEqual(
+            cohort_signature(collection, domain), cohort_signature(decoration, domain)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

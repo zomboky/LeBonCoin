@@ -3,6 +3,7 @@
 import datetime as dt
 import unittest
 
+from golddigger02 import config
 from golddigger02.domains import Domain, ModelRule, ValueBand
 from golddigger02.models import Listing
 from golddigger02.score import score_listing
@@ -100,6 +101,89 @@ class TestScoreListing(unittest.TestCase):
         listing = Listing(id="9", title="Quelque chose", price=50, category_id="1")
         score = score_listing(listing, None)
         self.assertGreaterEqual(score, 0)
+
+    def test_tout_signal_produit_a_un_poids(self):
+        """Un signal sans poids dans config.WEIGHTS est silencieusement ignoré
+        (c'était le bug A1 sur `authenticity`) — verrou anti-régression."""
+        domain = aviation_domain()
+        listing = Listing(
+            id="10",
+            title="Instrument Kolsman",
+            body="plaque constructeur numero de serie succession je ne sais pas",
+            price=1,
+            category_id="40",
+            seller_type="private",
+        )
+        listing.model, listing.model_source = "Badin", "body"
+        listing.reference_price = 200.0
+        score_listing(listing, domain)
+        self.assertLessEqual(set(listing.signals), set(config.WEIGHTS))
+
+    def test_indices_faibles_seuls_ne_saturent_pas(self):
+        domain = aviation_domain()
+        listing = Listing(
+            id="11", title="x",
+            body="vieux, en l'état, non testé, sans garantie",
+            price=100, category_id="40",
+        )
+        score_listing(listing, domain)
+        self.assertLessEqual(listing.signals["urgency"], 0.45)
+
+    def test_deux_indices_forts_saturent(self):
+        domain = aviation_domain()
+        listing = Listing(
+            id="12", title="x",
+            body="succession, je ne sais pas ce que c'est",
+            price=100, category_id="40",
+        )
+        score_listing(listing, domain)
+        self.assertEqual(listing.signals["urgency"], 1.0)
+
+    def test_un_indice_fort_vaut_plus_que_quatre_faibles(self):
+        domain = aviation_domain()
+        fort = Listing(id="13", title="x", body="succession", price=100, category_id="40")
+        faible = Listing(
+            id="14", title="x",
+            body="vieux, en l'état, non testé, sans garantie",
+            price=100, category_id="40",
+        )
+        score_listing(fort, domain)
+        score_listing(faible, domain)
+        self.assertGreater(fort.signals["urgency"], faible.signals["urgency"])
+
+    def test_baisse_de_prix_detectee(self):
+        domain = aviation_domain()
+        listing = Listing(
+            id="15", title="x", price=100, category_id="40", previous_price=200.0,
+        )
+        score_listing(listing, domain)
+        self.assertEqual(listing.signals["price_drop"], 1.0)
+
+    def test_absence_d_historique_est_neutre(self):
+        domain = aviation_domain()
+        listing = Listing(id="16", title="x", price=100, category_id="40")
+        score_listing(listing, domain)
+        self.assertEqual(listing.signals["price_drop"], 0.0)
+
+    def test_une_hausse_n_est_pas_une_baisse(self):
+        domain = aviation_domain()
+        listing = Listing(
+            id="17", title="x", price=250, category_id="40", previous_price=200.0,
+        )
+        score_listing(listing, domain)
+        self.assertEqual(listing.signals["price_drop"], 0.0)
+
+    def test_score_ne_depend_pas_du_cache(self):
+        """Le scoring doit rester pur et testable hors ligne : aucun objet de
+        cache.py ne doit fuir dans score.py. Verrou pour A2/A3, D1 et D2."""
+        import golddigger02.cache as cache_mod
+        import golddigger02.score as score_mod
+
+        leaked = [
+            name for name, value in vars(score_mod).items()
+            if getattr(value, "__module__", "") == cache_mod.__name__
+        ]
+        self.assertEqual(leaked, [])
 
 
 if __name__ == "__main__":

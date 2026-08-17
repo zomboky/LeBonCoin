@@ -73,8 +73,11 @@ class Listing:
     # Renseignés par pricing.py / score.py
     cohort_key: str = ""
     cohort_size: int = 0
+    cohort_median: float | None = None      # médiane pleine cohorte (self inclus)
     reference_price: float | None = None
-    reference_source: str = ""      # "cohort" | "band" | ""
+    reference_source: str = ""      # "cohort" | "history" | "band" | ""
+    reference_dispersion: float | None = None  # MAD des *autres* ; None = pas de doute
+    previous_price: float | None = None     # rempli par cli.py depuis le Store (D1)
     deal_score: float = 0.0
     signals: dict[str, float] = field(default_factory=dict)
     reasons: list[str] = field(default_factory=list)
@@ -170,7 +173,9 @@ class Listing:
             "model_source": self.model_source,
             "cohort_key": self.cohort_key,
             "cohort_size": self.cohort_size,
+            "cohort_median": self.cohort_median,
             "reference_price": self.reference_price,
+            "reference_source": self.reference_source,
             "deal_score": round(self.deal_score, 1),
             "signals": {k: round(v, 3) for k, v in self.signals.items()},
             "reasons": self.reasons,

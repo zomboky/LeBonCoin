@@ -17,22 +17,33 @@ from .extract import (
     listing_quality,
     normalize,
 )
-from .pricing import assign_reference_prices, is_suspiciously_cheap, price_gap
+from .pricing import (
+    assign_reference_prices,
+    is_suspiciously_cheap,
+    price_gap,
+    price_signal,
+)
 
-URGENCY_KEYWORDS = [
-    "demenagement", "déménagement", "succession", "debarras", "débarras",
-    "cause depart", "cause départ", "urgent", "liquidation", "heritage",
-    "héritage", "vide maison", "vide grenier", "grenier", "a debarrasser",
-    "à débarrasser", "avant destruction", "depart etranger", "départ étranger",
-    "rapidement", "premier arrive", "premier arrivé",
+# Indices forts : rares en dehors du motif recherché (vendeur pressé, ou qui
+# ignore explicitement ce qu'il vend). Deux indices forts saturent le signal.
+STRONG_URGENCY = [
+    "succession", "heritage", "héritage", "debarras", "débarras",
+    "vide maison", "vide grenier", "avant destruction", "liquidation",
+    "demenagement", "déménagement", "cause depart", "cause départ",
+    "depart etranger", "départ étranger",
+]
+STRONG_IGNORANCE = [
+    "je ne sais pas", "aucune idee", "aucune idée", "je connais pas",
+    "a identifier", "à identifier", "trouve dans", "trouvé dans",
+    "appartenait a mon", "appartenait à mon",
 ]
 
-# Un vendeur qui écrit ça ne sait pas ce qu'il vend — c'est une invitation.
-IGNORANCE_KEYWORDS = [
-    "je ne sais pas", "sais pas ce que c'est", "aucune idee", "aucune idée",
-    "trouve dans", "trouvé dans", "appartenait a mon", "appartenait à mon",
-    "vieux", "je connais pas", "sans garantie", "en l'etat", "en l'état",
-    "a identifier", "à identifier", "non teste", "non testé",
+# Indices faibles : omniprésents sur leboncoin (« vieux », « en l'état »...),
+# donc plafonnés — ils ne doivent jamais, seuls, saturer le signal (cf. C1).
+WEAK_TELLS = [
+    "vieux", "vieille", "en l'etat", "en l'état", "sans garantie",
+    "non teste", "non testé", "urgent", "rapidement",
+    "premier arrive", "premier arrivé", "grenier",
 ]
 
 
@@ -52,6 +63,17 @@ def _freshness(listing) -> float:
     return _clamp(1.0 - (age - 1) / 71.0)
 
 
+def _price_drop(listing) -> float:
+    """Baisse depuis un passage précédent, dans [0,1]. 50% de rabais = signal
+    plein — un vendeur qui casse son prix de moitié est aussi motivé qu'il
+    peut l'être. Un premier passage sans historique n'est pas pénalisé : 0.0
+    est neutre, pas une punition pour absence de passé."""
+    prev = listing.previous_price
+    if not prev or not listing.price or prev <= 0 or listing.price >= prev:
+        return 0.0
+    return _clamp((1.0 - listing.price / prev) / 0.5)
+
+
 def score_listing(listing, domain: Domain | None = None) -> float:
     """Calcule `deal_score` (0-100), remplit `signals` et `reasons`."""
     signals: dict[str, float] = {}
@@ -59,11 +81,17 @@ def score_listing(listing, domain: Domain | None = None) -> float:
     text = listing.text
 
     # --- Prix -----------------------------------------------------------------
-    gap = price_gap(listing)
+    # `raw_gap` sert aux raisons affichées et à la porte `brand_tier` : elles
+    # doivent rester véridiques (un pourcentage réel), indépendamment de la
+    # confiance accordée par la dispersion de la cohorte.
+    raw_gap = price_gap(listing)
+    gap = price_signal(listing)
     signals["price_gap"] = gap
-    if gap > 0.15 and listing.reference_price:
+    if raw_gap > 0.15 and listing.reference_price:
         pct = round((1 - listing.price / listing.reference_price) * 100)
-        source = "cohorte" if listing.reference_source == "cohort" else "barème"
+        source = {"cohort": "cohorte", "history": "historique"}.get(
+            listing.reference_source, "barème"
+        )
         reasons.append(f"-{pct}% vs {source} ({int(listing.reference_price)}€)")
 
     # --- Modèle caché ---------------------------------------------------------
@@ -87,7 +115,7 @@ def score_listing(listing, domain: Domain | None = None) -> float:
     tier = 0.0
     if domain is not None and domain.premium:
         premium_hit = find_markers(text, domain.premium)
-        if premium_hit and gap > 0.2:
+        if premium_hit and raw_gap > 0.2:
             tier = _clamp(len(premium_hit) / 2.0)
             reasons.append(f"pièce recherchée : {premium_hit[0]}")
     signals["brand_tier"] = tier
@@ -105,10 +133,11 @@ def score_listing(listing, domain: Domain | None = None) -> float:
         reasons.append("annonce bâclée (peu vue)")
 
     # --- Urgence et ignorance du vendeur --------------------------------------
-    haystack = normalize(text)
-    urgency_hits = [k for k in URGENCY_KEYWORDS if normalize(k) in haystack]
-    ignorance_hits = [k for k in IGNORANCE_KEYWORDS if normalize(k) in haystack]
-    signals["urgency"] = _clamp((len(urgency_hits) + len(ignorance_hits)) / 2.0)
+    urgency_hits = find_markers(text, STRONG_URGENCY)
+    ignorance_hits = find_markers(text, STRONG_IGNORANCE)
+    weak_hits = find_markers(text, WEAK_TELLS)
+    strong_count = len(urgency_hits) + len(ignorance_hits)
+    signals["urgency"] = _clamp(0.5 * strong_count + min(0.45, 0.15 * len(weak_hits)))
     if urgency_hits:
         reasons.append(f"vente pressée ({urgency_hits[0]})")
     if ignorance_hits:
@@ -116,6 +145,12 @@ def score_listing(listing, domain: Domain | None = None) -> float:
 
     signals["private_seller"] = 1.0 if listing.seller_type == "private" else 0.0
     signals["freshness"] = _freshness(listing)
+
+    # --- Baisse de prix (D1) ---------------------------------------------------
+    signals["price_drop"] = _price_drop(listing)
+    if signals["price_drop"] > 0:
+        pct = round((1 - listing.price / listing.previous_price) * 100)
+        reasons.append(f"prix baissé de {pct}% (était {int(listing.previous_price)}€)")
 
     # --- Agrégation -----------------------------------------------------------
     total_weight = sum(config.WEIGHTS.values())
@@ -152,15 +187,21 @@ def rank(
     min_cohort: int | None = None,
     min_score: float = 0.0,
     top: int | None = None,
+    cohort_stats: dict[str, float] | None = None,
 ) -> list:
-    """Enrichit, score et classe. C'est le point d'entrée du mode `deals`."""
+    """Enrichit, score et classe. C'est le point d'entrée du mode `deals`.
+
+    `cohort_stats` (optionnel) : médianes de cohorte persistées d'un run
+    précédent (D2), données pures — `rank`/`score.py` n'importent jamais
+    `cache.py`, cf. `test_score_ne_depend_pas_du_cache`.
+    """
     from .extract import extract_model  # import tardif : évite un cycle
 
     for listing in listings:
         brand, model, source = extract_model(listing, domain)
         listing.brand, listing.model, listing.model_source = brand, model, source
 
-    assign_reference_prices(listings, domain, min_cohort)
+    assign_reference_prices(listings, domain, min_cohort, cohort_stats)
 
     for listing in listings:
         score_listing(listing, domain)

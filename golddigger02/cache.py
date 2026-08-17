@@ -19,6 +19,7 @@ import time
 from typing import Any, Iterable
 
 from . import config
+from .extract import SIGNATURE_VERSION
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS responses (
@@ -39,6 +40,31 @@ CREATE INDEX IF NOT EXISTS idx_seen_domain ON seen(domain);
 CREATE INDEX IF NOT EXISTS idx_responses_fetched ON responses(fetched_at);
 """
 
+# Échelle de migration pilotée par `PRAGMA user_version` : chaque entier ajoute
+# ce que la version précédente n'avait pas. `user_version == 0` couvre à la fois
+# une base neuve et une base créée avant ce versionnage — `_SCHEMA` est
+# idempotent (`IF NOT EXISTS` partout), donc le rejouer ne perd aucune donnée.
+_SCHEMA_VERSION = 2
+
+_MIGRATIONS: dict[int, str] = {
+    1: _SCHEMA,
+    2: """
+CREATE TABLE IF NOT EXISTS price_history (
+    ad_id   TEXT    NOT NULL,
+    price   INTEGER NOT NULL,
+    seen_at REAL    NOT NULL,
+    PRIMARY KEY (ad_id, price)
+) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS cohort_stats (
+    cohort_key TEXT PRIMARY KEY,
+    domain     TEXT DEFAULT '',
+    median     REAL NOT NULL,
+    n          INTEGER NOT NULL,
+    updated_at REAL NOT NULL
+);
+""",
+}
+
 
 def cache_key(*parts: Any) -> str:
     raw = json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str)
@@ -58,8 +84,19 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
         with self._lock:
-            self.conn.executescript(_SCHEMA)
-            self.conn.commit()
+            self._migrate()
+
+    def _migrate(self) -> None:
+        current = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        if current == 0:
+            self.conn.executescript(_MIGRATIONS[1])
+            current = 1
+        for version in range(current + 1, _SCHEMA_VERSION + 1):
+            self.conn.executescript(_MIGRATIONS[version])
+            # PRAGMA n'accepte pas de paramètre lié ; `version` est un entier
+            # interne, jamais une entrée utilisateur.
+            self.conn.execute(f"PRAGMA user_version = {int(version)}")
+        self.conn.commit()
 
     def __enter__(self) -> "Store":
         return self
@@ -171,6 +208,138 @@ class Store:
             )
             self.conn.commit()
         return len(rows)
+
+    # -- Historique de prix (D1) ----------------------------------------------
+
+    def previous_prices(self, ad_ids: Iterable[str]) -> dict[str, float]:
+        """Prix le plus haut observé antérieurement, par annonce.
+
+        Le plus haut et non le dernier : `price_drop` doit détecter une baisse
+        par rapport à ce que l'annonce a valu, pas rejouer une oscillation.
+        """
+        ids = [str(i) for i in ad_ids if i]
+        if not ids:
+            return {}
+        out: dict[str, float] = {}
+        with self._lock:
+            for start in range(0, len(ids), 500):
+                chunk = ids[start : start + 500]
+                placeholders = ",".join("?" * len(chunk))
+                rows = self.conn.execute(
+                    f"SELECT ad_id, MAX(price) AS top FROM price_history "
+                    f"WHERE ad_id IN ({placeholders}) GROUP BY ad_id",
+                    chunk,
+                ).fetchall()
+                for r in rows:
+                    out[r["ad_id"]] = float(r["top"])
+        return out
+
+    def record_prices(self, listings: Iterable) -> int:
+        """Historise le prix courant de chaque annonce (une ligne par prix
+        distinct — `ON CONFLICT DO NOTHING` borne la table sans effacer le
+        premier moment observé pour ce prix)."""
+        now = time.time()
+        rows = [
+            (item.id, int(item.price), now)
+            for item in listings
+            if item.id and item.price
+        ]
+        if not rows:
+            return 0
+        with self._lock:
+            self.conn.executemany(
+                "INSERT INTO price_history (ad_id, price, seen_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(ad_id, price) DO NOTHING",
+                rows,
+            )
+            self.conn.commit()
+        return len(rows)
+
+    # -- Référence de cohorte persistée (D2) -----------------------------------
+
+    @staticmethod
+    def _versioned(key: str) -> str:
+        return f"{SIGNATURE_VERSION}:{key}"
+
+    def cohort_medians(self, keys: Iterable[str], ttl: int | None = None) -> dict[str, float]:
+        """Médianes persistées par `cohort_key` (clé brute), filtrées par
+        péremption. Les lignes trop vieilles sont ignorées, pas supprimées."""
+        ttl = config.COHORT_STAT_TTL if ttl is None else ttl
+        raw_keys = [str(k) for k in keys if k]
+        if not raw_keys:
+            return {}
+        by_versioned = {self._versioned(k): k for k in raw_keys}
+        versioned = list(by_versioned)
+        out: dict[str, float] = {}
+        now = time.time()
+        with self._lock:
+            for start in range(0, len(versioned), 500):
+                chunk = versioned[start : start + 500]
+                placeholders = ",".join("?" * len(chunk))
+                rows = self.conn.execute(
+                    f"SELECT cohort_key, median, updated_at FROM cohort_stats "
+                    f"WHERE cohort_key IN ({placeholders})",
+                    chunk,
+                ).fetchall()
+                for r in rows:
+                    if ttl > 0 and (now - r["updated_at"]) > ttl:
+                        continue
+                    raw_key = by_versioned.get(r["cohort_key"])
+                    if raw_key:
+                        out[raw_key] = float(r["median"])
+        return out
+
+    def update_cohort_stats(
+        self, listings: Iterable, domain: str = "", alpha: float | None = None
+    ) -> int:
+        """Mélange (EWMA) la médiane pleine cohorte de chaque annonce dans la
+        persistance, une seule fois par cohorte présente dans `listings`.
+
+        Ne lit que `listing.cohort_median` — jamais `reference_price` (LOO) :
+        chaque référence LOO exclut délibérément un membre différent, l'écrire
+        figerait un biais par-annonce dans une estimation de population.
+        `cohort_median` n'est renseigné par `pricing.assign_reference_prices`
+        que pour les cohortes ayant atteint `min_cohort` : une cohorte de deux
+        pépites qui se valident l'une l'autre n'atteint jamais cette table.
+        """
+        alpha = config.COHORT_STAT_ALPHA if alpha is None else alpha
+        now = time.time()
+        observed: dict[str, float] = {}
+        for item in listings:
+            if item.cohort_key and item.cohort_median is not None:
+                observed[item.cohort_key] = item.cohort_median
+        if not observed:
+            return 0
+
+        versioned_keys = [self._versioned(k) for k in observed]
+        with self._lock:
+            placeholders = ",".join("?" * len(versioned_keys))
+            rows = self.conn.execute(
+                f"SELECT cohort_key, median FROM cohort_stats WHERE cohort_key IN ({placeholders})",
+                versioned_keys,
+            ).fetchall()
+            existing = {r["cohort_key"]: r["median"] for r in rows}
+
+            upserts = []
+            for raw_key, new_value in observed.items():
+                vkey = self._versioned(raw_key)
+                old = existing.get(vkey)
+                blended = new_value if old is None else (1 - alpha) * old + alpha * new_value
+                upserts.append((vkey, domain, blended, now))
+
+            self.conn.executemany(
+                """
+                INSERT INTO cohort_stats (cohort_key, domain, median, n, updated_at)
+                VALUES (?, ?, ?, 1, ?)
+                ON CONFLICT(cohort_key) DO UPDATE SET
+                    median     = excluded.median,
+                    n          = n + 1,
+                    updated_at = excluded.updated_at
+                """,
+                upserts,
+            )
+            self.conn.commit()
+        return len(upserts)
 
     def forget(self, ad_ids: Iterable[str] | None = None, domain: str | None = None) -> int:
         with self._lock:
