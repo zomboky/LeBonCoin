@@ -17,8 +17,9 @@ import json
 import sys
 from pathlib import Path
 
-from . import cache, config, domains as domains_mod, render, research as research_mod
-from .api import SearchParams, fetch, fetch_many
+from . import cache, config, domains as domains_mod, pricing, render, research as research_mod
+from .api import SearchParams, fetch, fetch_matrix
+from .extract import normalize
 from .models import Listing
 from .score import rank
 from .transport import Blocked, Transport, TransportError
@@ -41,10 +42,30 @@ def _add_search_options(parser: argparse.ArgumentParser) -> None:
         choices=["date", "recent", "price", "price_desc", "relevance"],
     )
     parser.add_argument("--seller", choices=["private", "pro"])
-    parser.add_argument("--pages", "-p", type=int, default=2, help="pages par requête")
+    parser.add_argument(
+        "--pages", "-p", type=int, default=None,
+        help="pages par requête (défaut : 2, ou 10 en mode --sweep)",
+    )
     parser.add_argument("--delay", type=float, default=None, help="pause entre requêtes (s)")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--no-browser", action="store_true", help="pas de repli navigateur")
+    parser.add_argument(
+        "--all-categories", action="store_true",
+        help="interroger toutes les catégories du pack, pas seulement la première "
+        "(multiplie le nombre de requêtes par le nombre de catégories)",
+    )
+    parser.add_argument(
+        "--typo-queries", action="store_true",
+        help="ajouter les fautes d'orthographe du pack comme requêtes-sources "
+        "(modèle invisible aux recherches normales)",
+    )
+    parser.add_argument(
+        "--sweep", action="store_true",
+        help="balayer une catégorie entière sans mot-clé, triée par date — seule "
+        "façon de trouver ce qui ne contient aucun de vos mots-clés. Exige "
+        "--category ou --domain. Combiné à --all-categories : le run le moins "
+        "cher (ex. aviation : 30 requêtes contre 144 pour --typo-queries seul).",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument(
         "--from-fixture", help="lire un JSON local au lieu du réseau (tests)"
@@ -71,6 +92,12 @@ def _add_ranking_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _params_from_args(args) -> SearchParams:
+    if args.pages is not None:
+        pages = args.pages
+    else:
+        # Un balayage sans mot-clé veut voir bien plus qu'une journée
+        # d'annonces récentes ; --pages explicite l'emporte toujours.
+        pages = 10 if getattr(args, "sweep", False) else 2
     return SearchParams(
         text=args.query or "",
         category=args.category,
@@ -80,8 +107,18 @@ def _params_from_args(args) -> SearchParams:
         radius_km=args.radius,
         sort=args.sort,
         seller=args.seller,
-        pages=args.pages,
+        pages=pages,
     )
+
+
+def _typo_queries(domain) -> list[str]:
+    """Fautes d'orthographe du pack, hors variantes d'accent.
+
+    La recherche leboncoin est insensible aux accents : une entrée `typos` qui
+    ne diffère de la forme correcte que par un accent produirait une requête
+    strictement identique à une requête déjà lancée — gaspillage pur.
+    """
+    return [w for w, right in domain.typos.items() if normalize(w) != normalize(right)]
 
 
 def _load_fixture(path: str) -> list[Listing]:
@@ -105,16 +142,42 @@ def _collect(args, store) -> tuple[list[Listing], object]:
     )
     params = _params_from_args(args)
     use_cache = not args.no_cache
+    on_query = (lambda q: print(f"golddigger02: → {q}", file=sys.stderr)) if args.verbose else None
+
+    # Drapeaux de couverture, opt-in : sans eux, comportement inchangé.
+    all_categories = getattr(args, "all_categories", False) and domain is not None
+    categories = domain.category_ids if (all_categories and domain.category_ids) else None
+
+    if getattr(args, "sweep", False):
+        # Balayage aveugle (B3) : pas de mot-clé, tri chronologique forcé — le
+        # tri par pertinence n'a aucun sens sans mot-clé, et l'ordre
+        # chronologique est ce qui rend le balayage répétable face à `seen`.
+        # Une catégorie est obligatoire, sinon c'est "télécharger leboncoin".
+        sweep_categories = (
+            categories
+            or ([params.category] if params.category else None)
+            or (domain.category_ids[:1] if domain and domain.category_ids else None)
+        )
+        if not sweep_categories:
+            raise SystemExit(
+                "golddigger02: --sweep exige une catégorie (--category ou --domain)."
+            )
+        params.sort = "date"
+        listings = fetch_matrix([], params, sweep_categories, transport, store, use_cache, on_query)
+        return listings, domain
+
+    if not args.category and domain is not None and domain.category_ids and not categories:
+        params.category = domain.category_ids[0]
 
     # Un pack sans requête explicite lance ses propres requêtes-sources.
     if domain is not None and not args.query and domain.queries:
-        if not args.category and domain.category_ids:
-            params.category = domain.category_ids[0]
-        on_query = (lambda q: print(f"golddigger02: → {q}", file=sys.stderr)) if args.verbose else None
-        listings = fetch_many(domain.queries, params, transport, store, use_cache, on_query)
+        queries = list(domain.queries)
+        if getattr(args, "typo_queries", False):
+            queries += _typo_queries(domain)
+        listings = fetch_matrix(queries, params, categories, transport, store, use_cache, on_query)
+    elif categories:
+        listings = fetch_matrix([params.text], params, categories, transport, store, use_cache, on_query)
     else:
-        if domain is not None and not args.category and domain.category_ids:
-            params.category = domain.category_ids[0]
         listings = fetch(params, transport, store, use_cache)
 
     return listings, domain
@@ -139,9 +202,27 @@ def cmd_deals(args) -> int:
             print(f"golddigger02: {exc}", file=sys.stderr)
             return 2
 
+        # Historique de prix (D1) : lire l'existant AVANT d'enregistrer le prix
+        # courant, sinon chaque annonce deviendrait sa propre référence. Sur
+        # l'ensemble collecté, sans condition — `--no-mark` ne concerne que la
+        # mémoire de veille (`seen`), pas l'observation des prix : une annonce
+        # qui divise son prix par deux sans être dans le top affiché doit quand
+        # même construire une référence pour le prochain passage.
+        history = store.previous_prices([l.id for l in listings])
+        for listing in listings:
+            listing.previous_price = history.get(listing.id)
+        store.record_prices(listings)
+
         total = len(listings)
         if args.unseen:
             listings = store.filter_unseen(listings)
+
+        # Référence de cohorte persistée (D2) : les clés se calculent deux
+        # fois de la même façon (build_cohorts), une fois ici pour savoir quoi
+        # lire, une fois dans `rank` pour le scoring — jamais d'objet cache
+        # transmis à score.py, seulement le dict qui en résulte.
+        keys = pricing.assign_cohort_keys(listings, domain)
+        cohort_stats = store.cohort_medians(keys)
 
         ranked = rank(
             listings,
@@ -149,7 +230,9 @@ def cmd_deals(args) -> int:
             min_cohort=args.min_cohort,
             min_score=args.min_score,
             top=args.top,
+            cohort_stats=cohort_stats,
         )
+        store.update_cohort_stats(listings, domain=args.domain or "")
 
         print(render.summary_line(total, len(ranked), args.domain or "", args.unseen))
         if ranked:

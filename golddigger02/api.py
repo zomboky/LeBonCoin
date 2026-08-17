@@ -6,7 +6,7 @@ dessous on parle du JSON de leboncoin. Rien du format brut ne doit fuir plus hau
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Iterator
 from urllib.parse import urlencode
 
@@ -166,6 +166,42 @@ def fetch(
     return listings
 
 
+def fetch_matrix(
+    queries: list[str],
+    base: SearchParams,
+    categories: list[str | None] | None = None,
+    transport: Transport | None = None,
+    store: "cache.Store | None" = None,
+    use_cache: bool = True,
+    on_query=None,
+) -> list[Listing]:
+    """Produit cartésien requêtes × catégories, fusionné par identifiant.
+
+    Une `SearchParams` correspond à une seule charge utile API — c'est son
+    rôle documenté, et `web_url()` ne sait honorer qu'une seule catégorie. Le
+    fan-out multi-catégories est donc un problème d'ordonnancement, pas de
+    sérialisation : il vit ici, pas dans `SearchParams`.
+    """
+    transport = transport or Transport()
+    merged: dict[str, Listing] = {}
+    for category in (categories or [base.category]):
+        for query in (queries or [""]):
+            params = replace(base, text=query, category=category)
+            params._web_url = ""
+            if on_query:
+                label = query or "(sans mot-clé)"
+                if category:
+                    label = f"{label} [cat {category}]"
+                on_query(label)
+            try:
+                for listing in fetch(params, transport, store, use_cache):
+                    merged.setdefault(listing.id, listing)
+            except (Blocked, TransportError) as exc:
+                print(f"golddigger02: requête « {query} » abandonnée — {exc}")
+                continue
+    return list(merged.values())
+
+
 def fetch_many(
     queries: list[str],
     base: SearchParams,
@@ -174,21 +210,11 @@ def fetch_many(
     use_cache: bool = True,
     on_query=None,
 ) -> list[Listing]:
-    """Lance plusieurs requêtes-sources (cas d'un pack) et fusionne le résultat."""
-    transport = transport or Transport()
-    merged: dict[str, Listing] = {}
-    for query in queries:
-        params = SearchParams(**{**base.__dict__, "text": query})
-        params._web_url = ""
-        if on_query:
-            on_query(query)
-        try:
-            for listing in fetch(params, transport, store, use_cache):
-                merged.setdefault(listing.id, listing)
-        except (Blocked, TransportError) as exc:
-            print(f"golddigger02: requête « {query} » abandonnée — {exc}")
-            continue
-    return list(merged.values())
+    """Lance plusieurs requêtes-sources (cas d'un pack) et fusionne le résultat.
+
+    Conservé pour compatibilité : une seule catégorie, celle de `base`.
+    """
+    return fetch_matrix(queries, base, None, transport, store, use_cache, on_query)
 
 
 def iter_pages(params: SearchParams) -> Iterator[dict]:

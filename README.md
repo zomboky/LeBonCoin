@@ -84,6 +84,21 @@ Options principales de `deals`/`search`/`watch` : `--category` `--min-price`
 `--delay` `--no-cache` `--no-browser` `--from-fixture <json>` (rejoue un JSON
 local, utile pour tester sans réseau).
 
+**Options de couverture, opt-in — sans elles, comportement inchangé** :
+
+| Option | Effet | Coût |
+|---|---|---|
+| `--all-categories` | interroge toutes les catégories du pack, pas seulement la première (ex. aviation : `collection`+`decoration`+`bricolage`) | ×(nb de catégories) |
+| `--typo-queries` | ajoute les fautes d'orthographe connues du pack comme requêtes-sources (une marque mal orthographiée n'apparaît dans aucune recherche à l'orthographe correcte) | + (nb de fautes hors variantes d'accent) |
+| `--sweep` | balaye une catégorie entière, sans mot-clé, triée par date — seule façon de trouver ce qui ne contient aucun de vos mots-clés. Exige `--category` ou `--domain`. `--pages` passe à 10 par défaut (contre 2) | ×10 pages, mais 1 seule requête par catégorie |
+
+Ces options multiplient le nombre de requêtes envoyées à un site qui bloque
+déjà les IP de datacenter (voir plus haut) : `aviation --all-categories
+--typo-queries` ≈ 144 requêtes pour un run complet. `--sweep
+--all-categories` est la combinaison la moins chère (≈ 30 requêtes) — c'est
+celle à privilégier pour élargir la couverture sans se faire bloquer.
+Recommandé avec `--delay`.
+
 Options de `research` : `--filter "requête"` (ne garde que les passages
 pertinents) `--max-chars N` `--render` (rendu JS, Playwright) `--concurrency N`
 (défaut 5) `--no-cache` `--show N` (aperçu console de la 1ère page).
@@ -95,22 +110,40 @@ est celui où **le vendeur ignore ce qu'il vend**. Le score combine :
 
 | Signal | Ce qu'il capte |
 |---|---|
-| `price_gap` | écart sous le prix de référence (cohorte ou barème du pack) |
+| `price_gap` | écart sous le prix de référence (cohorte, historique persisté, ou barème du pack), atténué si la cohorte est dispersée |
 | `hidden_model` | modèle identifié dans la description, absent du titre |
 | `authenticity` | marqueurs d'origine trouvés ; un marqueur de reproduction écrase le score |
 | `brand_tier` | pièce recherchée du pack vendue au prix du tout-venant |
 | `typo_brand` | marque mal orthographiée → invisible dans les recherches normales |
 | `weak_listing` | annonce bâclée (peu de photos, description courte) |
-| `urgency` | vente pressée ou vendeur qui admet ne pas identifier l'objet |
+| `urgency` | vente pressée (indices forts : succession, débarras...) ou vendeur qui admet ne pas identifier l'objet ; les indices faibles et omniprésents (« vieux », « en l'état »...) sont plafonnés et ne saturent jamais seuls le signal |
+| `price_drop` | baisse de prix observée depuis un passage précédent (50% de rabais = signal plein) |
 | `private_seller` | un particulier price en général moins juste qu'un pro |
 | `freshness` | annonce récente |
 
-**Prix de référence.** Sur les annonces comparables (même catégorie, même
-modèle extrait ou signature de titre), on prend la médiane si la cohorte compte
-au moins `--min-cohort` membres (5 par défaut). En dessous — le cas fréquent
-sur du collector rare — on retombe sur les `value_bands` du pack, des
-fourchettes de prix curées par motif. La médiane et l'écart utilisent MAD
-(écart absolu médian), robuste aux prix aberrants qui pullulent sur leboncoin.
+**Prix de référence — ordre de précédence.**
+1. **Cohorte vivante** : sur les annonces comparables de ce run (même catégorie
+   — ou même pack si celui-ci déclare plusieurs catégories équivalentes —,
+   même modèle extrait ou signature de titre), la médiane des *autres*
+   annonces si la cohorte en compte au moins `--min-cohort` (5 par défaut,
+   avec au moins 2 « autres » dans tous les cas).
+2. **Historique persisté** : la médiane pleine cohorte des runs précédents
+   (mélangée par moyenne mobile — un run isolé la déplace de 30%, pas plus —
+   et bornée par le barème du pack quand un motif correspond, pour qu'aucune
+   dérive ne dépasse ce qu'un humain a jugé plausible). C'est ce qui donne une
+   référence chiffrée au collector rare, là où seul un barème existait avant.
+   Péremption : 90 jours (`GD2_COHORT_STAT_TTL`).
+3. **Barème du pack** (`value_bands`), à défaut des deux précédents.
+
+La médiane et l'écart utilisent MAD (écart absolu médian), robuste aux prix
+aberrants qui pullulent sur leboncoin ; la dispersion de la cohorte module
+aussi la confiance accordée à `price_gap` — un rabais dans une cohorte serrée
+compte plus que le même rabais dans une cohorte étalée.
+
+**Note sur le bruit.** Promouvoir l'historique persisté au-dessus des barèmes
+(délibérément conservateurs) relève en général les prix de référence sur le
+rare, donc produit plus de candidats détectés — et plus de faux positifs.
+C'est l'effet recherché, mais à garder en tête en lisant les résultats.
 
 **Garde-fous.** Un marqueur de reproduction détecté réduit le score à 15% de sa
 valeur, quel que soit le prix. Un prix sous 5% de la référence est traité comme
@@ -223,11 +256,14 @@ chemin) — jamais la page entière dans le contexte de l'agent.
 python3 -m unittest discover tests -v
 ```
 
-131 tests, aucune dépendance réseau (stdlib `unittest`). Ils couvrent le
+177 tests, aucune dépendance réseau (stdlib `unittest`). Ils couvrent le
 parsing défensif des payloads, la taxonomie, le chargement des packs, les
 statistiques robustes, chaque signal de score isolément, un scénario
 bout-en-bout avec une pépite plantée et un piège de reproduction à écarter, le
-format de sortie (y compris le budget de tokens), et le module `research`
+format de sortie (y compris le budget de tokens), la migration du schéma
+SQLite (base pré-versionnage, idempotence), l'historique de prix, la
+précédence et le corridor anti-dérive de la référence de cohorte persistée, la
+matrice requêtes × catégories (`--all-categories`), et le module `research`
 (extraction markdown, filtrage par pertinence, écriture de fichiers, et un
 test de régression sur l'accès concurrent au cache SQLite). Le transport réseau
 réel vers leboncoin **n'est pas testé ici** — DataDome bloque ce conteneur ;
